@@ -27,6 +27,7 @@ public class PlexPlaylistFetcher
     private int port;
     private string playlistName;
     private string cacheFilePath;
+    private string posterCachePath = Path.Combine(Application.persistentDataPath, "PosterCache");
 
     public PlexPlaylistFetcher(string token, string ip, int port, string playlistName)
     {
@@ -35,6 +36,9 @@ public class PlexPlaylistFetcher
         this.port = port;
         this.playlistName = playlistName;
         this.cacheFilePath = Path.Combine(Application.persistentDataPath, $"watch_or_not_{playlistName}_cache.json");
+
+        if (!Directory.Exists(posterCachePath))
+            Directory.CreateDirectory(posterCachePath);
     }
 
     public bool CacheExists()
@@ -128,6 +132,20 @@ public class PlexPlaylistFetcher
 
     private async Task LoadPosterAsync(MovieInfo movie)
     {
+        string fileName = $"{SanitizeFileName(movie.title)}_{movie.year}.png";
+        string filePath = Path.Combine(posterCachePath, fileName);
+
+        if (File.Exists(filePath))
+        {
+            byte[] fileData = File.ReadAllBytes(filePath);
+            Texture2D texture = new Texture2D(2, 2);
+            texture.LoadImage(fileData);
+            movie.posterTexture = texture;
+            return;
+        }
+
+
+        //Not Cached download from Plex
         UnityWebRequest req = UnityWebRequestTexture.GetTexture(movie.thumbUrl);
         var op = req.SendWebRequest();
 
@@ -135,10 +153,25 @@ public class PlexPlaylistFetcher
             await Task.Yield();
 
         if (req.result == UnityWebRequest.Result.Success)
-            movie.posterTexture = ((DownloadHandlerTexture)req.downloadHandler).texture;
+        {
+            Texture2D tex = ((DownloadHandlerTexture)req.downloadHandler).texture;
+            movie.posterTexture = tex;
+
+            //save to disk
+            byte[] bytes = tex.EncodeToPNG();
+            File.WriteAllBytes(filePath, bytes);
+        }
         else
             Debug.LogError($"Failed to load poster for {movie.title} : {req.error}");
     }
 
+    private string SanitizeFileName(string input)
+    {
+        foreach(char c in Path.GetInvalidFileNameChars())
+        {
+            input = input.Replace(c, '_');
+        }
 
+        return input;
+    }
 }
