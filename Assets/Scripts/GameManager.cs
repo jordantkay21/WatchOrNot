@@ -22,6 +22,7 @@ public class GameManager : MonoBehaviour
         var progress = new Progress<float>(p => LoadingUIManager.Instance.UpdateProgress(p));
         System.Action<string> status = msg => LoadingUIManager.Instance.UpdateStatus(msg);
 
+        uiManager.HideMovieInfo();
         LoadingUIManager.Instance.Show();
 
         if (fetcher.CacheExists())
@@ -42,6 +43,8 @@ public class GameManager : MonoBehaviour
             Debug.LogError("No Movies loaded from playlist");
             return;
         }
+
+        uiManager.ShowMovieInfo();
 
         rankingSystem = new RankingSystem(loadedMovies);
         ShowNextMovie();

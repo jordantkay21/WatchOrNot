@@ -9,13 +9,16 @@ using UnityEngine.UI;
 
 public class UIManager : MonoBehaviour
 {
+    public GameObject movieInfoPanel;
     public RawImage posterImage;
     public TMP_Text titleText;
-    public Button[] rankButtons;
-    public GameObject resultsPanel;
-    public TMP_Text resultsText;
     public TMP_Text summaryText;
     public Button watchTrailerButton;
+
+    public Button[] rankButtons;
+
+    public GameObject resultsPanel;
+    public TMP_Text resultsText;
 
     public void DisplayMovie(MovieInfo movie)
     {
@@ -36,6 +39,16 @@ public class UIManager : MonoBehaviour
         {
             watchTrailerButton.gameObject.SetActive(false);
         }
+    }
+
+    public void ShowMovieInfo()
+    {
+        movieInfoPanel.SetActive(true);
+    }
+
+    public void HideMovieInfo()
+    {
+        movieInfoPanel.SetActive(false);
     }
 
     public void DisableRank(int rank)
