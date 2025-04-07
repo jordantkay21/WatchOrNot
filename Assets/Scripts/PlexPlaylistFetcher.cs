@@ -4,6 +4,7 @@ using System.Xml;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
+using System;
 
 [System.Serializable]
 public class MovieInfo
@@ -46,22 +47,33 @@ public class PlexPlaylistFetcher
         return File.Exists(cacheFilePath);
     }
 
-    public async Task<List<MovieInfo>> LoadFromCache()
+    public async Task<List<MovieInfo>> LoadFromCache(IProgress<float> progress = null, System.Action<string> statusCallback = null)
     {
         string json = File.ReadAllText(cacheFilePath);
         var movies = JsonUtility.FromJson<MovieListWrapper>(json).movies;
 
-        foreach (var movie in movies)
+        int total = movies.Count;
+        
+        for (int i = 0; i < total; i++)
         {
+            var movie = movies[i];
+
+            statusCallback?.Invoke($"Loading poster: {movie.title}");
+
             if (movie.posterTexture == null)
                 await LoadPosterAsync(movie);
+
+            float percent = (float)(i + 1) / total;
+            progress?.Report(percent);
         }
 
         return movies;
     }
 
-    public async Task<List<MovieInfo>> FetchFromPlex(bool loadPosters = true)
+    public async Task<List<MovieInfo>> FetchFromPlex(bool loadPosters = true, IProgress<float> progress = null, System.Action<string> statusCallback = null)
     {
+        //Phase 1: Fetch Playlists
+        statusCallback?.Invoke("Fetching playlists from Plex...");
         string playlistsUrl = $"http://{serverIP}:{port}/playlists?X-Plex-Token={plexToken}";
         UnityWebRequest playlistReq = UnityWebRequest.Get(playlistsUrl);
         await playlistReq.SendWebRequest();
@@ -92,6 +104,8 @@ public class PlexPlaylistFetcher
             return null;
         }
 
+        //Phase 2: Fetch Playlist Items
+        statusCallback?.Invoke("Fetching playlist items...");
         string itemsUrl = $"http://{serverIP}:{port}/playlists/{playlistKey}/items?X-Plex-Token={plexToken}";
         UnityWebRequest itemsReq = UnityWebRequest.Get(itemsUrl);
         await itemsReq.SendWebRequest();
@@ -107,9 +121,12 @@ public class PlexPlaylistFetcher
         XmlNodeList videoNodes = itemsDoc.GetElementsByTagName("Video");
 
         List<MovieInfo> movies = new List<MovieInfo>();
+        int total = videoNodes.Count;
 
-        foreach (XmlNode video in videoNodes)
+        //Phase 3: Process each movie and load posters
+        for(int i =0; i < total; i++)
         {
+            XmlNode video = videoNodes[i];
             var movie = new MovieInfo
             {
                 title = video.Attributes["title"].Value,
@@ -118,12 +135,18 @@ public class PlexPlaylistFetcher
                 thumbUrl = $"http://{serverIP}:{port}{video.Attributes["thumb"].Value}?X-Plex-Token={plexToken}"
             };
 
+            statusCallback?.Invoke($"Processing movie {i + 1} of {total}: {movie.title}");
+
             if (loadPosters)
                 await LoadPosterAsync(movie);
 
             movies.Add(movie);
+
+            //Report progress based on movie processing
+            progress?.Report((float)(i + 1) / total);
         }
 
+        //Cache teh result as JSON
         string json = JsonUtility.ToJson(new MovieListWrapper { movies = movies }, true);
         File.WriteAllText(cacheFilePath, json);
 

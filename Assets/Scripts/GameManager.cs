@@ -19,17 +19,23 @@ public class GameManager : MonoBehaviour
     async void Start()
     {
         PlexPlaylistFetcher fetcher = new PlexPlaylistFetcher(plexToken, plexIp, plexPort, playlistName);
+        var progress = new Progress<float>(p => LoadingUIManager.Instance.UpdateProgress(p));
+        System.Action<string> status = msg => LoadingUIManager.Instance.UpdateStatus(msg);
+
+        LoadingUIManager.Instance.Show();
 
         if (fetcher.CacheExists())
         {
-            loadedMovies = await fetcher.LoadFromCache();
+            loadedMovies = await fetcher.LoadFromCache(progress, status);
             Debug.Log($"{loadedMovies.Count} movies loaded from cache.");
         }
         else
         {
-            loadedMovies = await fetcher.FetchFromPlex();
+            loadedMovies = await fetcher.FetchFromPlex(true,progress, status);
             Debug.Log($"{loadedMovies?.Count} movies loaded from Plex.");
         }
+
+        LoadingUIManager.Instance.Hide();
 
         if (loadedMovies == null || loadedMovies.Count == 0)
         {
