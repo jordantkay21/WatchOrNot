@@ -7,7 +7,7 @@ using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.UI;
 
-public class UIManager : MonoBehaviour
+public class RankingUIManager : MonoBehaviour
 {
     public GameObject movieInfoPanel;
     public RawImage posterImage;
@@ -51,10 +51,15 @@ public class UIManager : MonoBehaviour
         movieInfoPanel.SetActive(false);
     }
 
-    public void DisableRank(int rank)
+    public void SetRankLabel(int rank, string movieTitle)
     {
-        if (rank - 1 < rankButtons.Length)
-            rankButtons[rank - 1].interactable = false;
+        if (rank - 1 >= rankButtons.Length) return;
+
+        var btn = rankButtons[rank - 1];
+        btn.interactable = false;
+
+        var label = btn.GetComponentInChildren<TMP_Text>();
+        label.text = $"{rank}\n{movieTitle}";
     }
 
     public void ShowError(string msg)

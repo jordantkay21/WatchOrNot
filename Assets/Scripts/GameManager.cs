@@ -10,7 +10,7 @@ public class GameManager : MonoBehaviour
     public string playlistName = "PLAYLIST_NAME";
     public List<MovieInfo> loadedMovies;
 
-    [SerializeField] UIManager uiManager;
+    [SerializeField] RankingUIManager uiManager;
 
     private RankingSystem rankingSystem;
     private MovieInfo currentMovie;
@@ -60,7 +60,7 @@ public class GameManager : MonoBehaviour
     {
         if (rankingSystem.AssignRank(currentMovie, rank))
         {
-            uiManager.DisableRank(rank);
+            uiManager.SetRankLabel(rank, currentMovie.title);
             ShowNextMovie();
         }
         else
