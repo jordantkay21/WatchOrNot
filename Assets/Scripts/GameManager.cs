@@ -10,7 +10,7 @@ public class GameManager : MonoBehaviour
     public string playlistName = "PLAYLIST_NAME";
     public List<MovieInfo> loadedMovies;
 
-    [SerializeField] RankingUIManager uiManager;
+    [SerializeField] RankingUIManager RankingUiManager;
 
     private RankingSystem rankingSystem;
     private MovieInfo currentMovie;
@@ -22,7 +22,7 @@ public class GameManager : MonoBehaviour
         var progress = new Progress<float>(p => LoadingUIManager.Instance.UpdateProgress(p));
         System.Action<string> status = msg => LoadingUIManager.Instance.UpdateStatus(msg);
 
-        uiManager.HideMovieInfo();
+        RankingUiManager.HideMovieInfo();
         LoadingUIManager.Instance.Show();
 
         if (fetcher.CacheExists())
@@ -44,15 +44,15 @@ public class GameManager : MonoBehaviour
             return;
         }
 
-        uiManager.ShowMovieInfo();
+        RankingUiManager.ShowMovieInfo();
 
         rankingSystem = new RankingSystem(loadedMovies);
         ShowNextMovie();
 
-        for (int i = 0; i < uiManager.rankButtons.Length; i++)
+        for (int i = 0; i < RankingUiManager.rankButtons.Length; i++)
         {
             int rank = i + 1;
-            uiManager.rankButtons[i].onClick.AddListener(() => OnRankButtonClicked(rank));
+            RankingUiManager.rankButtons[i].onClick.AddListener(() => OnRankButtonClicked(rank));
         }
     }
 
@@ -60,12 +60,12 @@ public class GameManager : MonoBehaviour
     {
         if (rankingSystem.AssignRank(currentMovie, rank))
         {
-            uiManager.SetRankLabel(rank, currentMovie.title);
+            RankingUiManager.SetRankLabel(rank, currentMovie.title);
             ShowNextMovie();
         }
         else
         {
-            uiManager.ShowError($"Rank {rank} is already used!");
+            RankingUiManager.ShowError($"Rank {rank} is already used!");
         }
     }
 
@@ -74,11 +74,13 @@ public class GameManager : MonoBehaviour
         currentMovie = rankingSystem.GetNextMovie();
         if(currentMovie == null)
         {
-            uiManager.ShowResults(rankingSystem.GetRankedResults());
+            RankingUiManager.HideMovieInfo();
+            RankingUiManager.HideRankButtons();
+            RankingUiManager.ShowResults(rankingSystem.GetRankedResults());
         }
         else
         {
-            uiManager.DisplayMovie(currentMovie);
+            RankingUiManager.DisplayMovie(currentMovie);
         }
 
 

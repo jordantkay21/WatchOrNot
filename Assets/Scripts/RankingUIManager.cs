@@ -13,8 +13,10 @@ public class RankingUIManager : MonoBehaviour
     public RawImage posterImage;
     public TMP_Text titleText;
     public TMP_Text summaryText;
+    public TMP_Text genreText;
     public Button watchTrailerButton;
 
+    public GameObject rankButtonPanel;
     public Button[] rankButtons;
 
     public GameObject resultsPanel;
@@ -25,6 +27,7 @@ public class RankingUIManager : MonoBehaviour
         titleText.text = $"{movie.title} ({movie.year})";
         posterImage.texture = movie.posterTexture;
         summaryText.text = $"{movie.summary}";
+
 
         if (!string.IsNullOrEmpty(movie.trailerUrl))
         {
@@ -39,11 +42,28 @@ public class RankingUIManager : MonoBehaviour
         {
             watchTrailerButton.gameObject.SetActive(false);
         }
+
+        genreText.text = $"GENRE: {movie.genres}";
     }
 
     public void ShowMovieInfo()
     {
         movieInfoPanel.SetActive(true);
+    }
+    public void ShowResults(List<(int rank, MovieInfo movie)> ranked)
+    {
+        resultsPanel.SetActive(true);
+        resultsText.text = string.Join("\n", ranked.Select(r => $"{r.rank}: {r.movie.title}"));
+    }
+
+    public void ShowRankButtons()
+    {
+        rankButtonPanel.SetActive(true);
+    }
+
+    public void HideRankButtons()
+    {
+        rankButtonPanel.SetActive(false);
     }
 
     public void HideMovieInfo()
@@ -67,10 +87,5 @@ public class RankingUIManager : MonoBehaviour
         Debug.LogWarning(msg);
     }
 
-    public void ShowResults(List<(int rank, MovieInfo movie)> ranked)
-    {
-        resultsPanel.SetActive(true);
-        resultsText.text = string.Join("\n", ranked.Select(r => $"{r.rank}: {r.movie.title}"));
-    }
 
 }
