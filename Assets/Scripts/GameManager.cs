@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class GameManager : MonoBehaviour
@@ -14,6 +15,12 @@ public class GameManager : MonoBehaviour
 
     private RankingSystem rankingSystem;
     private MovieInfo currentMovie;
+
+    [SerializeField] CaseUIManager caseUiManager;
+
+    private List<MovieInfo> shuffledCases;
+    private MovieInfo chosenCase;
+    private bool playerHasChosenCase = false;
 
 
     async void Start()
@@ -44,16 +51,33 @@ public class GameManager : MonoBehaviour
             return;
         }
 
-        RankingUiManager.ShowMovieInfo();
+
+
+        shuffledCases = loadedMovies.OrderBy(_ => UnityEngine.Random.value).ToList();
+
+        caseUiManager.Show();
+        caseUiManager.OnCaseSelected += HandlePlayerCaseSelection;
+    }
+
+    private void HandlePlayerCaseSelection(int index)
+    {
+        caseUiManager.Hide();
+        playerHasChosenCase = true;
+        chosenCase = shuffledCases[index];
+        Debug.Log($"Player chosen case {index + 1} (movie hidden): {chosenCase.title}");
 
         rankingSystem = new RankingSystem(loadedMovies);
-        ShowNextMovie();
+
+        RankingUiManager.ShowMovieInfo();
+        RankingUiManager.ShowRankButtons();
 
         for (int i = 0; i < RankingUiManager.rankButtons.Length; i++)
         {
             int rank = i + 1;
             RankingUiManager.rankButtons[i].onClick.AddListener(() => OnRankButtonClicked(rank));
         }
+
+        ShowNextMovie();
     }
 
     private void OnRankButtonClicked(int rank)
@@ -77,6 +101,7 @@ public class GameManager : MonoBehaviour
             RankingUiManager.HideMovieInfo();
             RankingUiManager.HideRankButtons();
             RankingUiManager.ShowResults(rankingSystem.GetRankedResults());
+            caseUiManager.Show();
         }
         else
         {

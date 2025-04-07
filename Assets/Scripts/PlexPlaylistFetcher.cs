@@ -18,6 +18,7 @@ public class MovieInfo
     public string summary;
     public string trailerUrl;
     public string genres;
+    public string duration;
 }
 public class PlexPlaylistFetcher
 {
@@ -137,6 +138,7 @@ public class PlexPlaylistFetcher
         for(int i =0; i < total; i++)
         {
             XmlNode video = videoNodes[i];
+            
             var genreNodes = video.SelectNodes("Genre");
             List<string> genreList = new List<string>();
 
@@ -146,14 +148,26 @@ public class PlexPlaylistFetcher
                     genreList.Add(genreNode.Attributes["tag"].Value);
             }
 
+
             var movie = new MovieInfo
             {
                 title = video.Attributes["title"].Value,
                 year = int.Parse(video.Attributes["year"].Value),
                 ratingKey = video.Attributes["ratingKey"].Value,
                 thumbUrl = $"http://{serverIP}:{port}{video.Attributes["thumb"].Value}?X-Plex-Token={plexToken}",
-                genres = string.Join(", ", genreList)
+                genres = string.Join(", ", genreList),
             };
+
+            var durationAttr = video.Attributes["duration"];
+            if(durationAttr != null && long.TryParse(durationAttr.Value, out long durationMs))
+            {
+                TimeSpan durationTime = TimeSpan.FromMilliseconds(durationMs);
+                movie.duration = $"{(int)durationTime.TotalHours}h {durationTime.Minutes:D2}m";
+            }
+            else
+            {
+                movie.duration = "Unknown";
+            }
 
             statusCallback?.Invoke($"Processing movie {i + 1} of {total}: {movie.title}");
 

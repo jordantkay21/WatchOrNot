@@ -14,13 +14,17 @@ public class RankingUIManager : MonoBehaviour
     public TMP_Text titleText;
     public TMP_Text summaryText;
     public TMP_Text genreText;
+    public TMP_Text durationText;
     public Button watchTrailerButton;
 
     public GameObject rankButtonPanel;
     public Button[] rankButtons;
 
     public GameObject resultsPanel;
-    public TMP_Text resultsText;
+    public Transform resultsListContainer;
+    public GameObject resultEntryPrefab;
+
+    private Dictionary<int, GameObject> resultEntries = new();
 
     public void DisplayMovie(MovieInfo movie)
     {
@@ -44,6 +48,7 @@ public class RankingUIManager : MonoBehaviour
         }
 
         genreText.text = $"GENRE: {movie.genres}";
+        durationText.text = $"DURATION: {movie.duration}";
     }
 
     public void ShowMovieInfo()
@@ -53,7 +58,25 @@ public class RankingUIManager : MonoBehaviour
     public void ShowResults(List<(int rank, MovieInfo movie)> ranked)
     {
         resultsPanel.SetActive(true);
-        resultsText.text = string.Join("\n", ranked.Select(r => $"{r.rank}: {r.movie.title}"));
+
+        foreach (Transform child in resultsListContainer)
+            Destroy(child.gameObject);
+
+        resultEntries.Clear();
+
+        foreach (var entry in ranked)
+        {
+            GameObject resultGO = Instantiate(resultEntryPrefab, resultsListContainer);
+            var texts = resultGO.GetComponentsInChildren<TMP_Text>();
+
+            var rankText = texts.First(t => t.name == "RankText");
+            var titleText = texts.First(t => t.name == "TitleText");
+
+            rankText.text = entry.rank.ToString();
+            titleText.text = entry.movie.title;
+
+            resultEntries[entry.rank] = resultGO;
+        }
     }
 
     public void ShowRankButtons()
@@ -87,5 +110,14 @@ public class RankingUIManager : MonoBehaviour
         Debug.LogWarning(msg);
     }
 
+    public void CrossOutRankedMovie(int rank)
+    {
+        if (resultEntries.TryGetValue(rank, out GameObject entry))
+        {
+            var titleText = entry.GetComponentsInChildren<TMP_Text>().FirstOrDefault(t => t.name == "TitleText");
 
+            if (titleText != null)
+                titleText.fontStyle |= FontStyles.Strikethrough;
+        }
+    }
 }
