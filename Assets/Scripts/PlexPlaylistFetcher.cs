@@ -14,6 +14,9 @@ public class MovieInfo
     public string ratingKey;
     public string thumbUrl;
     public Texture2D posterTexture;
+
+    public string summary;
+    public string trailerUrl;
 }
 public class PlexPlaylistFetcher
 {
@@ -63,9 +66,15 @@ public class PlexPlaylistFetcher
             if (movie.posterTexture == null)
                 await LoadPosterAsync(movie);
 
+            await TMDBMetadataFetcher.FetchMetadataAsync(movie);
+
             float percent = (float)(i + 1) / total;
             progress?.Report(percent);
         }
+
+        //Re-Cache updated summary/trailer
+        string updatedJson = JsonUtility.ToJson(new MovieListWrapper { movies = movies }, true);
+        File.WriteAllText(cacheFilePath, updatedJson);
 
         return movies;
     }
@@ -139,6 +148,8 @@ public class PlexPlaylistFetcher
 
             if (loadPosters)
                 await LoadPosterAsync(movie);
+
+            await TMDBMetadataFetcher.FetchMetadataAsync(movie);
 
             movies.Add(movie);
 

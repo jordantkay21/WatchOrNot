@@ -14,11 +14,28 @@ public class UIManager : MonoBehaviour
     public Button[] rankButtons;
     public GameObject resultsPanel;
     public TMP_Text resultsText;
+    public TMP_Text summaryText;
+    public Button watchTrailerButton;
 
     public void DisplayMovie(MovieInfo movie)
     {
         titleText.text = $"{movie.title} ({movie.year})";
         posterImage.texture = movie.posterTexture;
+        summaryText.text = $"{movie.summary}";
+
+        if (!string.IsNullOrEmpty(movie.trailerUrl))
+        {
+            watchTrailerButton.gameObject.SetActive(true);
+            watchTrailerButton.onClick.RemoveAllListeners();
+            watchTrailerButton.onClick.AddListener(() =>
+            {
+                Application.OpenURL(movie.trailerUrl);
+            });
+        }
+        else
+        {
+            watchTrailerButton.gameObject.SetActive(false);
+        }
     }
 
     public void DisableRank(int rank)
