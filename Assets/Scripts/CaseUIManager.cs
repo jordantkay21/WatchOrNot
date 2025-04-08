@@ -8,7 +8,7 @@ public class CaseUIManager : MonoBehaviour
     public GameObject casePanel;
     public Button[] caseButtons;
 
-    public System.Action<int> OnCaseSelected;
+    public System.Action<int, bool> OnCaseSelected;
 
     public void Show()
     {
@@ -16,7 +16,7 @@ public class CaseUIManager : MonoBehaviour
 
         for (int i = 0; i < caseButtons.Length; i++)
         {
-            int index = i + 1;
+            int index = i;
             caseButtons[i].onClick.RemoveAllListeners();
             caseButtons[i].onClick.AddListener(() => SelectCase(index));
         }
@@ -29,14 +29,38 @@ public class CaseUIManager : MonoBehaviour
 
     private void SelectCase(int index)
     {
-        OnCaseSelected?.Invoke(index);
+        if (!GameManager.Instance.HasPlayerChosenCase())
+        {
+            OnCaseSelected?.Invoke(index, true);
 
-        var btn = caseButtons[index - 1];
+            var btn = caseButtons[index];
 
-        btn.interactable = false;
+            btn.interactable = false;
 
-        var label = btn.GetComponentInChildren<TMP_Text>();
-        label.text = $"YOUR CASE \n {index}";
-        Hide();
+            var label = btn.GetComponentInChildren<TMP_Text>();
+            label.text = $"YOUR CASE \n {index + 1}";
+            Hide();
+
+        }
+        else
+        {
+            OnCaseSelected?.Invoke(index, false);
+
+            var btn = caseButtons[index];
+            btn.interactable = false;
+
+            var poster = btn.GetComponentInChildren<RawImage>();
+            var revealedMovie = GameManager.Instance.GetRevealedMovieInfo();
+
+            if (poster != null)
+            {
+                poster.texture = revealedMovie.posterTexture;
+                poster.enabled = true;
+            }
+            else
+            {
+                Debug.LogWarning($"CaseUIManager failed to retrieve case {index + 1} RawImage Component");
+            }
+        }
     }
 }

@@ -5,6 +5,8 @@ using UnityEngine;
 
 public class GameManager : MonoBehaviour
 {
+    public static GameManager Instance;
+
     public string plexToken = "YOUR_PLEX_TOKEN";
     public string plexIp = "SERVER_IP";
     public int plexPort = 32400;
@@ -13,6 +15,7 @@ public class GameManager : MonoBehaviour
 
     [SerializeField] RankingUIManager RankingUiManager;
 
+    private List<MovieInfo> availableMovies;
     private RankingSystem rankingSystem;
     private MovieInfo currentMovie;
 
@@ -20,9 +23,20 @@ public class GameManager : MonoBehaviour
 
     private List<MovieInfo> shuffledCases;
     private MovieInfo chosenCase;
+    private MovieInfo revealedCase;
     private bool playerHasChosenCase = false;
 
-
+    private void Awake()
+    {
+        if(Instance == null)
+        {
+            Instance = this;
+        }
+        else
+        {
+            Destroy(gameObject);
+        }
+    }
     async void Start()
     {
         PlexPlaylistFetcher fetcher = new PlexPlaylistFetcher(plexToken, plexIp, plexPort, playlistName);
@@ -51,33 +65,52 @@ public class GameManager : MonoBehaviour
             return;
         }
 
+        if (loadedMovies.Count >= 12)
+        {
+            availableMovies = loadedMovies
+                .OrderBy(_ => UnityEngine.Random.value)
+                .Take(12)
+                .ToList();
+        }
+        else
+        {
+            Debug.LogError("Not enough movies to play. Need at least 12.");
+        }
 
-
-        shuffledCases = loadedMovies.OrderBy(_ => UnityEngine.Random.value).ToList();
+        shuffledCases = availableMovies.OrderBy(_ => UnityEngine.Random.value).ToList();
 
         caseUiManager.Show();
         caseUiManager.OnCaseSelected += HandlePlayerCaseSelection;
     }
 
-    private void HandlePlayerCaseSelection(int index)
+    private void HandlePlayerCaseSelection(int index, bool isChosenCase)
     {
-        caseUiManager.Hide();
-        playerHasChosenCase = true;
-        chosenCase = shuffledCases[index];
-        Debug.Log($"Player chosen case {index + 1} (movie hidden): {chosenCase.title}");
-
-        rankingSystem = new RankingSystem(loadedMovies);
-
-        RankingUiManager.ShowMovieInfo();
-        RankingUiManager.ShowRankButtons();
-
-        for (int i = 0; i < RankingUiManager.rankButtons.Length; i++)
+        if (isChosenCase == true) //Player is choosing their case
         {
-            int rank = i + 1;
-            RankingUiManager.rankButtons[i].onClick.AddListener(() => OnRankButtonClicked(rank));
-        }
+            caseUiManager.Hide();
+            playerHasChosenCase = true;
+            chosenCase = shuffledCases[index];
+            Debug.Log($"Player chosen case {index + 1} (movie hidden): {chosenCase.title}");
 
-        ShowNextMovie();
+            rankingSystem = new RankingSystem(availableMovies);
+
+            RankingUiManager.ShowMovieInfo();
+            RankingUiManager.ShowRankButtons();
+
+            for (int i = 0; i < RankingUiManager.rankButtons.Length; i++)
+            {
+                int rank = i + 1;
+                RankingUiManager.rankButtons[i].onClick.AddListener(() => OnRankButtonClicked(rank));
+            }
+
+            ShowNextMovie();
+        }
+        else
+        {
+            revealedCase = shuffledCases[index];
+            RankingUiManager.CrossOutByTitle(revealedCase.title);
+            Debug.Log($"Player revealed case {index + 1} revealing movie: {revealedCase.title}");
+        }
     }
 
     private void OnRankButtonClicked(int rank)
@@ -109,5 +142,15 @@ public class GameManager : MonoBehaviour
         }
 
 
+    }
+
+    public bool HasPlayerChosenCase()
+    {
+        return playerHasChosenCase;
+    }
+
+    public MovieInfo GetRevealedMovieInfo()
+    {
+        return revealedCase;
     }
 }

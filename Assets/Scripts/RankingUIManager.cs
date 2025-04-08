@@ -110,14 +110,19 @@ public class RankingUIManager : MonoBehaviour
         Debug.LogWarning(msg);
     }
 
-    public void CrossOutRankedMovie(int rank)
+    public void CrossOutByTitle(string title)
     {
-        if (resultEntries.TryGetValue(rank, out GameObject entry))
+        foreach (var entry in resultEntries.Values)
         {
-            var titleText = entry.GetComponentsInChildren<TMP_Text>().FirstOrDefault(t => t.name == "TitleText");
+            var texts = entry.GetComponentsInChildren<TMP_Text>();
+            var titleText = texts.FirstOrDefault(t => t.name == "TitleText");
 
-            if (titleText != null)
+            if (titleText != null && titleText.text == title)
+            {
+                titleText.fontStyle |= FontStyles.Bold;
                 titleText.fontStyle |= FontStyles.Strikethrough;
+                break;
+            }
         }
     }
 }
