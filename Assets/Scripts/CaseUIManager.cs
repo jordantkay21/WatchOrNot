@@ -8,7 +8,7 @@ public class CaseUIManager : MonoBehaviour
     public GameObject casePanel;
     public Button[] caseButtons;
 
-    public System.Action<int, bool> OnCaseSelected;
+    public System.Action<int> OnCaseSelected;
 
     public void Show()
     {
@@ -31,7 +31,7 @@ public class CaseUIManager : MonoBehaviour
     {
         if (!GameManager.Instance.HasPlayerChosenCase())
         {
-            OnCaseSelected?.Invoke(index, true);
+            OnCaseSelected?.Invoke(index);
 
             var btn = caseButtons[index];
 
@@ -44,14 +44,14 @@ public class CaseUIManager : MonoBehaviour
         }
         else
         {
-            OnCaseSelected?.Invoke(index, false);
+            OnCaseSelected?.Invoke(index);
 
             var btn = caseButtons[index];
             btn.interactable = false;
 
             var poster = btn.GetComponentInChildren<RawImage>();
             var revealedMovie = GameManager.Instance.GetRevealedMovieInfo();
-
+ 
             if (poster != null)
             {
                 poster.texture = revealedMovie.posterTexture;

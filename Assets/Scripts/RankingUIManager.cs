@@ -10,8 +10,8 @@ using UnityEngine.UI;
 public class RankingUIManager : MonoBehaviour
 {
     public GameObject movieInfoPanel;
-    public RawImage posterImage;
     public TMP_Text titleText;
+    public RawImage posterImage;
     public TMP_Text summaryText;
     public TMP_Text genreText;
     public TMP_Text durationText;
@@ -124,5 +124,31 @@ public class RankingUIManager : MonoBehaviour
                 break;
             }
         }
+    }
+
+    public GameObject finalRevealPanel;
+    public TMP_Text finalMovieTitleText;
+    public RawImage finalMoviePosterImage;
+    public TMP_Text finalMovieSummaryText;
+    public TMP_Text finalMovieRankResultText;
+
+    public void RevealFinalMovie(MovieInfo movie)
+    {
+        finalRevealPanel.SetActive(true);
+
+        finalMovieTitleText.text = movie.title;
+        finalMoviePosterImage.texture = movie.posterTexture;
+        finalMovieSummaryText.text = string.IsNullOrEmpty(movie.summary)
+            ? "No summary available."
+            : movie.summary;
+
+        // Try to find ranking from results
+        var rankedResults = GameManager.Instance.rankingSystem.GetRankedResults();
+        int rank = rankedResults.FindIndex(entry => entry.movie.title == movie.title) + 1;
+
+        if (rank > 0)
+            finalMovieRankResultText.text = $"You picked your #{rank} movie!";
+        else
+            finalMovieRankResultText.text = $"This movie was not in your final ranking list.";
     }
 }

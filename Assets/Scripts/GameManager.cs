@@ -3,6 +3,21 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
+public enum GamePhase
+{
+    ChooseCase,
+    Ranking,
+    Reveal1,
+    Offer1,
+    Reveal2,
+    Offer2,
+    Reveal3,
+    Offer3,
+    Reveal4,
+    Switch,
+    FinalReveal
+}
+
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance;
@@ -16,7 +31,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] RankingUIManager RankingUiManager;
 
     private List<MovieInfo> availableMovies;
-    private RankingSystem rankingSystem;
+    public RankingSystem rankingSystem;
     private MovieInfo currentMovie;
 
     [SerializeField] CaseUIManager caseUiManager;
@@ -25,6 +40,13 @@ public class GameManager : MonoBehaviour
     private MovieInfo chosenCase;
     private MovieInfo revealedCase;
     private bool playerHasChosenCase = false;
+
+    public MovieOfferUIManager movieOfferUi;
+    private MovieInfo movieOffer;
+
+    private GamePhase currentPhase = GamePhase.ChooseCase;
+    private int casesToRevealThisRound = 0;
+    private int revealedThisRound = 0;
 
     private void Awake()
     {
@@ -79,37 +101,38 @@ public class GameManager : MonoBehaviour
 
         shuffledCases = availableMovies.OrderBy(_ => UnityEngine.Random.value).ToList();
 
-        caseUiManager.Show();
         caseUiManager.OnCaseSelected += HandlePlayerCaseSelection;
+
+        HandlePhaseStart();
     }
 
-    private void HandlePlayerCaseSelection(int index, bool isChosenCase)
+    private void HandlePlayerCaseSelection(int index)
     {
-        if (isChosenCase == true) //Player is choosing their case
+        if (!playerHasChosenCase) //Player is choosing their case
         {
             caseUiManager.Hide();
             playerHasChosenCase = true;
             chosenCase = shuffledCases[index];
             Debug.Log($"Player chosen case {index + 1} (movie hidden): {chosenCase.title}");
 
-            rankingSystem = new RankingSystem(availableMovies);
-
-            RankingUiManager.ShowMovieInfo();
-            RankingUiManager.ShowRankButtons();
-
-            for (int i = 0; i < RankingUiManager.rankButtons.Length; i++)
-            {
-                int rank = i + 1;
-                RankingUiManager.rankButtons[i].onClick.AddListener(() => OnRankButtonClicked(rank));
-            }
-
-            ShowNextMovie();
+            currentPhase = GamePhase.Ranking;
+            HandlePhaseStart();
         }
-        else
+        else if (IsInRevealRound())
         {
             revealedCase = shuffledCases[index];
             RankingUiManager.CrossOutByTitle(revealedCase.title);
-            Debug.Log($"Player revealed case {index + 1} revealing movie: {revealedCase.title}");
+            revealedThisRound++;
+            Debug.Log($"Revealed case {index + 1}: {revealedCase.title}");
+
+            if (revealedThisRound >= casesToRevealThisRound)
+            {
+                AdvancePhase();
+            }
+            else
+            {
+                ShowNextMovie();
+            }
         }
     }
 
@@ -134,10 +157,11 @@ public class GameManager : MonoBehaviour
             RankingUiManager.HideMovieInfo();
             RankingUiManager.HideRankButtons();
             RankingUiManager.ShowResults(rankingSystem.GetRankedResults());
-            caseUiManager.Show();
+            AdvancePhase();
         }
         else
         {
+
             RankingUiManager.DisplayMovie(currentMovie);
         }
 
@@ -152,5 +176,138 @@ public class GameManager : MonoBehaviour
     public MovieInfo GetRevealedMovieInfo()
     {
         return revealedCase;
+    }
+
+    public void ShowMovieOffer()
+    {
+        movieOffer = loadedMovies[UnityEngine.Random.Range(0, loadedMovies.Count)];
+        movieOfferUi.ShowOffer(
+            $"The Banker offers you this movie!",
+            movieOffer,
+            "Decline",
+            "Accept",
+            (bool accepted) =>
+            {
+                if (accepted)
+                    Debug.Log("Player Accepted Bankers Offer");
+                //End Game Logic
+                else
+                    AdvancePhase();
+            }); 
+    }
+
+    public MovieInfo GetMovieOfferInfo()
+    {
+        if (movieOffer != null)
+            return movieOffer;
+        else return null;
+    }
+
+    private void AdvancePhase()
+    {
+        currentPhase++;
+        Debug.Log($"Game Phase advanced to: {currentPhase}");
+        HandlePhaseStart();
+    }
+
+    private void HandlePhaseStart()
+    {
+        switch (currentPhase)
+        {
+            case GamePhase.ChooseCase:
+                caseUiManager.Show();
+                break;
+            case GamePhase.Ranking:
+                BeginRanking();
+                break;
+            case GamePhase.Reveal1:
+                StartRevealRound(4);
+                break;
+            case GamePhase.Offer1:
+                ShowMovieOffer();
+                break;
+            case GamePhase.Reveal2:
+                StartRevealRound(3);
+                break;
+            case GamePhase.Offer2:
+                ShowMovieOffer();
+                break;
+            case GamePhase.Reveal3:
+                StartRevealRound(2);
+                break;
+            case GamePhase.Offer3:
+                ShowMovieOffer();
+                break;
+            case GamePhase.Reveal4:
+                StartRevealRound(1);
+                break;
+            case GamePhase.Switch:
+                ShowSwitchChoice();
+                break;
+            case GamePhase.FinalReveal:
+                RevealPlayerCase();
+                break;
+        }
+    }
+
+    private bool IsInRevealRound()
+    {
+        return currentPhase == GamePhase.Reveal1 ||
+            currentPhase == GamePhase.Reveal2 ||
+            currentPhase == GamePhase.Reveal3 ||
+            currentPhase == GamePhase.Reveal4;
+    }
+
+    private void StartRevealRound(int count)
+    {
+        revealedThisRound = 0;
+        casesToRevealThisRound = count;
+        Debug.Log($"Reveal round started. Reveal {count} cases.");
+        caseUiManager.Show();
+    }
+
+    private void BeginRanking()
+    {
+        rankingSystem = new RankingSystem(availableMovies);
+        RankingUiManager.ShowMovieInfo();
+        RankingUiManager.ShowRankButtons();
+
+        for (int i = 0; i < RankingUiManager.rankButtons.Length; i++)
+        {
+            int rank = i + 1;
+            RankingUiManager.rankButtons[i].onClick.RemoveAllListeners();
+            RankingUiManager.rankButtons[i].onClick.AddListener(() => OnRankButtonClicked(rank));
+        }
+
+        ShowNextMovie();
+    }
+
+    private void ShowSwitchChoice()
+    {
+        int remainingIndex = Enumerable.Range(0, shuffledCases.Count)
+            .Except(new[] { shuffledCases.IndexOf(chosenCase) }) // Player’s original case
+            .Except(rankingSystem.rankings.Values.Select(m => shuffledCases.IndexOf(m))) // Already revealed
+            .FirstOrDefault(); // Only one left should remain
+
+        movieOfferUi.ShowOffer(
+            $"Would you like to keep your original case or switch with the Case {remainingIndex + 1}?",
+            null,
+            "Keep",
+            "Switch",
+            (bool switchIt) =>
+            {
+                if (switchIt)
+                    chosenCase = shuffledCases[remainingIndex];
+
+                AdvancePhase();
+            });
+    }
+
+    private void RevealPlayerCase()
+    {
+        RankingUiManager.RevealFinalMovie(chosenCase);
+        Debug.Log($"Final reveal: The movie in your case was {chosenCase.title}");
+
+        // Optional: Cross out final result or compare to player's rankings
     }
 }
