@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
+[System.Serializable]
 public enum GamePhase
 {
     ChooseCase,
@@ -44,9 +45,10 @@ public class GameManager : MonoBehaviour
     public MovieOfferUIManager movieOfferUi;
     private MovieInfo movieOffer;
 
-    private GamePhase currentPhase = GamePhase.ChooseCase;
+    public GamePhase currentPhase = GamePhase.ChooseCase;
     private int casesToRevealThisRound = 0;
     private int revealedThisRound = 0;
+    private List<int> revealedCaseIndices = new();
 
     private void Awake()
     {
@@ -122,17 +124,22 @@ public class GameManager : MonoBehaviour
         {
             revealedCase = shuffledCases[index];
             RankingUiManager.CrossOutByTitle(revealedCase.title);
+
+            if (!revealedCaseIndices.Contains(index))
+                revealedCaseIndices.Add(index);
+
             revealedThisRound++;
+
+            RoundStatusUIManager.Instance.UpdateProgress(revealedThisRound, casesToRevealThisRound);
             Debug.Log($"Revealed case {index + 1}: {revealedCase.title}");
+
+            Debug.Log($"[Reveal] Phase: {currentPhase}, RevealedThisRound: {revealedThisRound} / {casesToRevealThisRound}");
 
             if (revealedThisRound >= casesToRevealThisRound)
             {
                 AdvancePhase();
             }
-            else
-            {
-                ShowNextMovie();
-            }
+
         }
     }
 
@@ -180,6 +187,12 @@ public class GameManager : MonoBehaviour
 
     public void ShowMovieOffer()
     {
+        RoundStatusUIManager.Instance.UpdateRoundStatus(
+    $"{currentPhase}",
+    $"Banker has a deal to offer!",
+    ""
+        );
+
         movieOffer = loadedMovies[UnityEngine.Random.Range(0, loadedMovies.Count)];
         movieOfferUi.ShowOffer(
             $"The Banker offers you this movie!",
@@ -189,11 +202,14 @@ public class GameManager : MonoBehaviour
             (bool accepted) =>
             {
                 if (accepted)
+                {
                     Debug.Log("Player Accepted Bankers Offer");
+                    ShowFinalMovie(movieOffer);
+                }
                 //End Game Logic
                 else
                     AdvancePhase();
-            }); 
+            });
     }
 
     public MovieInfo GetMovieOfferInfo()
@@ -216,6 +232,11 @@ public class GameManager : MonoBehaviour
         {
             case GamePhase.ChooseCase:
                 caseUiManager.Show();
+                RoundStatusUIManager.Instance.UpdateRoundStatus(
+                    $"{currentPhase}",
+                    $"Choose your lucky case!",
+                    ""
+                );
                 break;
             case GamePhase.Ranking:
                 BeginRanking();
@@ -245,7 +266,7 @@ public class GameManager : MonoBehaviour
                 ShowSwitchChoice();
                 break;
             case GamePhase.FinalReveal:
-                RevealPlayerCase();
+                ShowFinalMovie(chosenCase);
                 break;
         }
     }
@@ -262,12 +283,26 @@ public class GameManager : MonoBehaviour
     {
         revealedThisRound = 0;
         casesToRevealThisRound = count;
-        Debug.Log($"Reveal round started. Reveal {count} cases.");
+
+        Debug.Log($"[Reveal Start] Phase: {currentPhase}, CasesToReveal: {casesToRevealThisRound}");
+
+        RoundStatusUIManager.Instance.UpdateRoundStatus(
+            $"Reveal Round {GetRevealRoundIndex()}",
+            $"Pick {casesToRevealThisRound} cases to reveal.",
+            $"Revealed: 0/{casesToRevealThisRound}"
+            );
+
         caseUiManager.Show();
     }
 
     private void BeginRanking()
     {
+        RoundStatusUIManager.Instance.UpdateRoundStatus(
+    $"{currentPhase}",
+    $"Rank the movies from 1 (Want to watch the most) to 12 (want to watch the least)",
+    ""
+        );
+
         rankingSystem = new RankingSystem(availableMovies);
         RankingUiManager.ShowMovieInfo();
         RankingUiManager.ShowRankButtons();
@@ -284,30 +319,55 @@ public class GameManager : MonoBehaviour
 
     private void ShowSwitchChoice()
     {
-        int remainingIndex = Enumerable.Range(0, shuffledCases.Count)
-            .Except(new[] { shuffledCases.IndexOf(chosenCase) }) // Player’s original case
-            .Except(rankingSystem.rankings.Values.Select(m => shuffledCases.IndexOf(m))) // Already revealed
-            .FirstOrDefault(); // Only one left should remain
+        int chosenIndex = shuffledCases.IndexOf(chosenCase);
+
+        var remainingIndex = Enumerable.Range(0, shuffledCases.Count)
+            .Except(new[] { chosenIndex })
+            .Except(revealedCaseIndices)
+            .ToList();
+
+        if (remainingIndex.Count != 1)
+        {
+            Debug.LogError($"Expected exactly one unrevealed case, found: {remainingIndex.Count}");
+            return;
+        }
+
+        int finalIndex = remainingIndex[0];
+        var finalCase = shuffledCases[finalIndex];
 
         movieOfferUi.ShowOffer(
-            $"Would you like to keep your original case or switch with the Case {remainingIndex + 1}?",
+            $"Would you like to keep your original case or switch with the Case {finalIndex + 1}?",
             null,
             "Keep",
             "Switch",
             (bool switchIt) =>
             {
                 if (switchIt)
-                    chosenCase = shuffledCases[remainingIndex];
+                    chosenCase = finalCase;
 
                 AdvancePhase();
             });
     }
 
-    private void RevealPlayerCase()
+    private void ShowFinalMovie(MovieInfo finalMovie)
     {
-        RankingUiManager.RevealFinalMovie(chosenCase);
-        Debug.Log($"Final reveal: The movie in your case was {chosenCase.title}");
+        var ranked = rankingSystem.GetRankedResults();
+        int rank = ranked.FindIndex(m => m.movie.title == finalMovie.title);
 
-        // Optional: Cross out final result or compare to player's rankings
+        FinalRevealPanel.Instance.ShowFinalMovie(finalMovie, rank);
     }
+
+    private int GetRevealRoundIndex()
+    {
+        return currentPhase switch
+        {
+            GamePhase.Reveal1 => 1,
+            GamePhase.Reveal2 => 2,
+            GamePhase.Reveal3 => 3,
+            GamePhase.Reveal4 => 4,
+            _ => 0
+        };
+    }
+
+
 }
