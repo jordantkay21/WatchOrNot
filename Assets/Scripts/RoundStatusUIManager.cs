@@ -5,6 +5,7 @@ public class RoundStatusUIManager : MonoBehaviour
 {
     public static RoundStatusUIManager Instance;
 
+    public GameObject roundStatusPanel;
     public TMP_Text roundTitleText;
     public TMP_Text roundInstructionText;
     public TMP_Text roundProgressText;
@@ -19,6 +20,7 @@ public class RoundStatusUIManager : MonoBehaviour
 
     public void UpdateRoundStatus(string title, string instruction, string progress = "")
     {
+        roundStatusPanel.SetActive(true);
         Debug.Log($"{this} : Round title is {title}");
         roundTitleText.text = title;
         roundInstructionText.text = instruction;
@@ -37,5 +39,10 @@ public class RoundStatusUIManager : MonoBehaviour
     public void UpdateProgress(int revealed, int total)
     {
         roundProgressText.text = $"Revealed: {revealed} / {total}";
+    }
+
+    public void Hide()
+    {
+        roundStatusPanel.SetActive(false);
     }
 }

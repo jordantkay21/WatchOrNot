@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -61,6 +62,26 @@ public class CaseUIManager : MonoBehaviour
             {
                 Debug.LogWarning($"CaseUIManager failed to retrieve case {index + 1} RawImage Component");
             }
+        }
+    }
+
+    public void SetCaseButtonsInteractable(bool interactable)
+    {
+        foreach (var button in caseButtons)
+        {
+            button.interactable = interactable;
+        }
+    }
+
+    public void SetCaseButtonsForReveal(List<int> revealedIndices, int chosenIndex)
+    {
+        for (int i=0; i<caseButtons.Length; i++)
+        {
+            //Disable if already revealed or if it's the player's chosen case
+            if (revealedIndices.Contains(i) || i == chosenIndex)
+                caseButtons[i].interactable = false;
+            else
+                caseButtons[i].interactable = true;
         }
     }
 }

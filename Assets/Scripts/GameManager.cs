@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using UnityEngine;
 
 [System.Serializable]
@@ -185,13 +186,22 @@ public class GameManager : MonoBehaviour
         return revealedCase;
     }
 
-    public void ShowMovieOffer()
+    private async void ShowMovieOffer()
     {
+        caseUiManager.SetCaseButtonsInteractable(false);
+
+        //Show suspense message first
         RoundStatusUIManager.Instance.UpdateRoundStatus(
-    $"{currentPhase}",
-    $"Banker has a deal to offer!",
-    ""
-        );
+            $"{currentPhase}",
+            $"The Banker is considering an offer...",
+            ""
+            );
+
+        //Wait 3 seconds
+        await Task.Delay(3000);
+
+        //Now show the actual offer
+        RoundStatusUIManager.Instance.Hide();
 
         movieOffer = loadedMovies[UnityEngine.Random.Range(0, loadedMovies.Count)];
         movieOfferUi.ShowOffer(
@@ -293,6 +303,9 @@ public class GameManager : MonoBehaviour
             );
 
         caseUiManager.Show();
+
+        int chosenIndex = shuffledCases.IndexOf(chosenCase);
+        caseUiManager.SetCaseButtonsForReveal(revealedCaseIndices, chosenIndex);
     }
 
     private void BeginRanking()
