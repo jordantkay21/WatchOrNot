@@ -37,4 +37,11 @@ public class RankingSystem
     {
         return rankings.OrderBy(kv => kv.Key).Select(kv => (kv.Key, kv.Value)).ToList();
     }
+
+    public void SwapRanks(int rankA, int rankB)
+    {
+        var temp = rankings[rankA];
+        rankings[rankA] = rankings[rankB];
+        rankings[rankB] = temp;
+    }
 }

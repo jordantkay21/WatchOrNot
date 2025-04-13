@@ -9,6 +9,7 @@ public enum GamePhase
 {
     ChooseCase,
     Ranking,
+    RankAdjustment,
     Reveal1,
     Offer1,
     Reveal2,
@@ -30,7 +31,7 @@ public class GameManager : MonoBehaviour
     public string playlistName = "PLAYLIST_NAME";
     public List<MovieInfo> loadedMovies;
 
-    [SerializeField] RankingUIManager RankingUiManager;
+    [SerializeField] RankingUIManager rankingUiManager;
 
     private List<MovieInfo> availableMovies;
     public RankingSystem rankingSystem;
@@ -43,13 +44,14 @@ public class GameManager : MonoBehaviour
     private MovieInfo revealedCase;
     private bool playerHasChosenCase = false;
 
-    public MovieOfferUIManager movieOfferUi;
     private MovieInfo movieOffer;
 
     public GamePhase currentPhase = GamePhase.ChooseCase;
     private int casesToRevealThisRound = 0;
     private int revealedThisRound = 0;
     private List<int> revealedCaseIndices = new();
+
+    private int swapCount = 0;
 
     private void Awake()
     {
@@ -68,7 +70,7 @@ public class GameManager : MonoBehaviour
         var progress = new Progress<float>(p => LoadingUIManager.Instance.UpdateProgress(p));
         System.Action<string> status = msg => LoadingUIManager.Instance.UpdateStatus(msg);
 
-        RankingUiManager.HideMovieInfo();
+        rankingUiManager.HideMovieInfo();
         LoadingUIManager.Instance.Show();
 
         if (fetcher.CacheExists())
@@ -124,7 +126,7 @@ public class GameManager : MonoBehaviour
         else if (IsInRevealRound())
         {
             revealedCase = shuffledCases[index];
-            RankingUiManager.CrossOutByTitle(revealedCase.title);
+            rankingUiManager.CrossOutByTitle(revealedCase.title);
 
             if (!revealedCaseIndices.Contains(index))
                 revealedCaseIndices.Add(index);
@@ -148,12 +150,12 @@ public class GameManager : MonoBehaviour
     {
         if (rankingSystem.AssignRank(currentMovie, rank))
         {
-            RankingUiManager.SetRankLabel(rank, currentMovie.title);
+            rankingUiManager.SetRankLabel(rank, currentMovie.title);
             ShowNextMovie();
         }
         else
         {
-            RankingUiManager.ShowError($"Rank {rank} is already used!");
+            rankingUiManager.ShowError($"Rank {rank} is already used!");
         }
     }
 
@@ -162,15 +164,15 @@ public class GameManager : MonoBehaviour
         currentMovie = rankingSystem.GetNextMovie();
         if(currentMovie == null)
         {
-            RankingUiManager.HideMovieInfo();
-            RankingUiManager.HideRankButtons();
-            RankingUiManager.ShowResults(rankingSystem.GetRankedResults());
+            rankingUiManager.HideMovieInfo();
+            rankingUiManager.HideRankButtons();
+            rankingUiManager.ShowResults(rankingSystem.GetRankedResults());
             AdvancePhase();
         }
         else
         {
 
-            RankingUiManager.DisplayMovie(currentMovie);
+            rankingUiManager.DisplayMovie(currentMovie);
         }
 
 
@@ -204,22 +206,21 @@ public class GameManager : MonoBehaviour
         RoundStatusUIManager.Instance.Hide();
 
         movieOffer = loadedMovies[UnityEngine.Random.Range(0, loadedMovies.Count)];
-        movieOfferUi.ShowOffer(
+
+        PopUpUI.Instance.ShowPopup(
             $"The Banker offers you this movie!",
-            movieOffer,
-            "Decline",
             "Accept",
-            (bool accepted) =>
+            () =>
             {
-                if (accepted)
-                {
-                    Debug.Log("Player Accepted Bankers Offer");
-                    ShowFinalMovie(movieOffer);
-                }
-                //End Game Logic
-                else
-                    AdvancePhase();
-            });
+                Debug.Log("Player Accepted Bankers Offer");
+                ShowFinalMovie(movieOffer);
+            },
+            "Decline",
+            () =>
+            {
+                AdvancePhase();
+            },
+            movieOffer);
     }
 
     public MovieInfo GetMovieOfferInfo()
@@ -250,6 +251,9 @@ public class GameManager : MonoBehaviour
                 break;
             case GamePhase.Ranking:
                 BeginRanking();
+                break;
+            case GamePhase.RankAdjustment:
+                BeginRankAdjustment();
                 break;
             case GamePhase.Reveal1:
                 StartRevealRound(4);
@@ -317,14 +321,14 @@ public class GameManager : MonoBehaviour
         );
 
         rankingSystem = new RankingSystem(availableMovies);
-        RankingUiManager.ShowMovieInfo();
-        RankingUiManager.ShowRankButtons();
+        rankingUiManager.ShowMovieInfo();
+        rankingUiManager.ShowRankButtons();
 
-        for (int i = 0; i < RankingUiManager.rankButtons.Length; i++)
+        for (int i = 0; i < rankingUiManager.rankButtons.Length; i++)
         {
             int rank = i + 1;
-            RankingUiManager.rankButtons[i].onClick.RemoveAllListeners();
-            RankingUiManager.rankButtons[i].onClick.AddListener(() => OnRankButtonClicked(rank));
+            rankingUiManager.rankButtons[i].onClick.RemoveAllListeners();
+            rankingUiManager.rankButtons[i].onClick.AddListener(() => OnRankButtonClicked(rank));
         }
 
         ShowNextMovie();
@@ -348,16 +352,17 @@ public class GameManager : MonoBehaviour
         int finalIndex = remainingIndex[0];
         var finalCase = shuffledCases[finalIndex];
 
-        movieOfferUi.ShowOffer(
+        PopUpUI.Instance.ShowPopup(
             $"Would you like to keep your original case or switch with the Case {finalIndex + 1}?",
-            null,
             "Keep",
-            "Switch",
-            (bool switchIt) =>
+            () =>
             {
-                if (switchIt)
-                    chosenCase = finalCase;
-
+                AdvancePhase();
+            },
+            "Switch",
+            () =>
+            {
+                chosenCase = finalCase;
                 AdvancePhase();
             });
     }
@@ -382,5 +387,29 @@ public class GameManager : MonoBehaviour
         };
     }
 
+    private void BeginRankAdjustment()
+    {
+        RoundStatusUIManager.Instance.UpdateRoundStatus(
+            $"Adjust Rankings",
+            $"You have 3 chances to swap any two ranked movies.",
+            "Tap two entries to swap them.");
 
+        rankingUiManager.EnableSwappingUI();
+    }
+
+    public void OnRankSwapped()
+    {
+        swapCount++;
+        if (swapCount >= 3)
+        {
+            FinalizeRanking();
+        }
+            
+    }
+
+    public void FinalizeRanking()
+   {
+        rankingUiManager.DisableAllSwapButtons();
+        AdvancePhase();
+    }
 }
