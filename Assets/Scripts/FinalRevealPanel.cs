@@ -39,5 +39,8 @@ public class FinalRevealPanel : MonoBehaviour
 
         replayButton.onClick.AddListener(() => UnityEngine.SceneManagement.SceneManager.LoadScene(0));
         quitButton.onClick.AddListener(() => Application.Quit());
+
+        replayButton.GetComponentInChildren<TMP_Text>().text = $"Replay";
+        quitButton.GetComponentInChildren<TMP_Text>().text = $"Quit";
     }
 }

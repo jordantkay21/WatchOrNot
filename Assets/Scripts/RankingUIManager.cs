@@ -78,6 +78,25 @@ public class RankingUIManager : MonoBehaviour
             GameObject resultGO = Instantiate(resultEntryPrefab, resultsListContainer);
             resultGO.name = $"Rank {entry.rank} Result Entry";
 
+            var infoButton = resultGO.transform.Find("InfoButton")?.GetComponent<Button>();
+            if (infoButton != null && entry.movie != null)
+            {
+                var movie = entry.movie;
+                infoButton.onClick.AddListener(() =>
+                {
+                    PopUpUI.Instance.ShowPopup(
+                        null,
+                    "Close",
+                    () => {
+                        PopUpUI.Instance.HidePopup();
+                    },
+                    null,
+                    null,
+                    movie
+                );
+                });
+            }
+
             var texts = resultGO.GetComponentsInChildren<TMP_Text>();
 
             var rankText = texts.First(t => t.name == "RankText");
