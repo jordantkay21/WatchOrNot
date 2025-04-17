@@ -38,6 +38,17 @@ public class PlexLoginUI : MonoBehaviour
     public void BeginLogin()
     {
         plexConnectionPanel.SetActive(true);
+
+        instructionText.gameObject.SetActive(true);
+        statusText.gameObject.SetActive(false);
+        codeText.gameObject.SetActive(false);
+
+        instructionText.text = "Retrieving code from Plex.tv";
+    }
+
+    public void LoginSuccessful()
+    {
+        plexConnectionPanel.SetActive(false);
     }
 
     private void OnCodeReceived(string code)
@@ -50,8 +61,6 @@ public class PlexLoginUI : MonoBehaviour
         codeText.text = code;
         statusText.text = "Waiting for link confirmation. . .";
 
-
-        Debug.Log($"PlexLoginUI:OnCodeReceived - Code Retrieved {code}");
     }
 
     private void OnTokenReceived(string token)
@@ -62,8 +71,6 @@ public class PlexLoginUI : MonoBehaviour
 
         instructionText.text = "Token receieved!";
         statusText.text = "Storing Server Information...";
-
-        Debug.Log($"PlexLoginUI:OnTokenReceived - Token Received {token}");
     }
 
     private void OnServerDiscovered(string ip, int port)
@@ -75,6 +82,6 @@ public class PlexLoginUI : MonoBehaviour
         instructionText.text = $"Found Plex Server at {ip}:{port}";
         statusText.text = "Storing Server Information...";
 
-        Debug.Log($"PlexLoginUI:OnServerDiscovered - Found Plex Server at {ip}:{port}");
+        LoginSuccessful();
     }
 }

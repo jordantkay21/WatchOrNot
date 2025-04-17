@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Xml;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -45,7 +46,7 @@ public class PlexAuthManager : MonoBehaviour
 
     public void InspectToken()
     {
-        string storedToken = PlexStorageManager.LoadToken();
+        string storedToken = SessionInfoManager.LoadToken();
 
         if (!string.IsNullOrEmpty(storedToken))
         {
@@ -104,8 +105,10 @@ public class PlexAuthManager : MonoBehaviour
         }
 
         var xml = req.downloadHandler.text;
-        var doc = new System.Xml.XmlDocument();
+        var doc = new XmlDocument();
         doc.LoadXml(xml);
+
+        Debug.Log($"PlexAuthManager:GetPin - Pin Request XML \n {xml}");
 
         var pinNode = doc.SelectSingleNode("//pin");
 
@@ -137,6 +140,8 @@ public class PlexAuthManager : MonoBehaviour
                 var doc = new System.Xml.XmlDocument();
                 doc.LoadXml(xml);
 
+                Debug.Log($"PlexAuthManager:PollForAuth - Poll XML: {xml}");
+
                 var pinNode = doc.SelectSingleNode("//pin");
                 var token = pinNode["auth_token"]?.InnerText;
 
@@ -144,7 +149,7 @@ public class PlexAuthManager : MonoBehaviour
                 {
                     Debug.Log($"PlexAuthManager:PollForAuth - Plex Auth Token Recieved: {token}");
                     OnTokenReceived?.Invoke(token);
-                    PlexStorageManager.SaveToken(token);
+                    SessionInfoManager.SaveToken(token);
                     StartCoroutine(GetPlexServer(token));
                     yield break;
                 }
@@ -181,71 +186,41 @@ public class PlexAuthManager : MonoBehaviour
         Debug.Log($"Server response: {response}");
 
         // Optionally parse response for first server IP + port
-        var doc = new System.Xml.XmlDocument();
+        var doc = new XmlDocument();
         doc.LoadXml(response);
 
         var deviceNodes = doc.SelectNodes("//Device");
 
-        foreach (System.Xml.XmlNode device in deviceNodes)
+        foreach (XmlNode device in deviceNodes)
         {
-            var product = device.Attributes["product"]?.Value;
-            var owned = device.Attributes["owned"]?.Value;
-
-            if (product != "Plex Media Server" || owned != "1")
-                continue;
-
-            var connections = device.SelectNodes("Connection");
-
-            foreach (System.Xml.XmlNode connection in connections)
+            if (device.Attributes["provides"]?.Value == "server")
             {
-                var nameAttr = connection.Attributes["name"]?.Value;
-                var local = connection.Attributes["local"]?.Value;
-                var address = connection.Attributes["address"]?.Value;
-                var portAttr = connection.Attributes["port"]?.Value;
+                string serverName = device.Attributes["name"]?.Value;
+                SessionInfoManager.SaveName(serverName);
 
-                if (local == "1" && !string.IsNullOrEmpty(address) && !string.IsNullOrEmpty(portAttr) && !string.IsNullOrEmpty(nameAttr))
+                var connections = device.SelectNodes("Connection");
+
+                foreach (XmlNode connection in connections)
                 {
-                    int port = int.Parse(portAttr);
+                    var local = connection.Attributes["local"]?.Value;
+                    var address = connection.Attributes["address"]?.Value;
+                    var portAttr = connection.Attributes["port"]?.Value;
 
-                    Debug.Log($"PlexAuthManager:GetPlexServer - Found {nameAttr} Plex Server : {address}:{port}");
-                    PlexStorageManager.SaveServer(address, port);
-                    PlexStorageManager.SaveName(nameAttr);
+                    if (local == "1" && !string.IsNullOrEmpty(address) && !string.IsNullOrEmpty(portAttr))
+                    {
+                        int port = int.Parse(portAttr);
 
-                    OnServerDiscovered?.Invoke(address, port);
-                    yield break;
+                        Debug.Log($"PlexAuthManager:GetPlexServer - Found {serverName} Plex Server : {address}:{port}");
+                        SessionInfoManager.SaveServer(address, port);
+
+
+                        OnServerDiscovered?.Invoke(address, port);
+                        yield break;
+                    }
                 }
             }
-        }
 
-        // If no local server was found, fallback to external one
-        foreach (System.Xml.XmlNode device in deviceNodes)
-        {
-            var product = device.Attributes["product"]?.Value;
-            var owned = device.Attributes["owned"]?.Value;
 
-            if (product != "Plex Media Server" || owned != "1")
-                continue;
-
-            var connections = device.SelectNodes("Connection");
-
-            foreach (System.Xml.XmlNode connection in connections)
-            {
-                var address = connection.Attributes["address"]?.Value;
-                var portAttr = connection.Attributes["port"]?.Value;
-
-                if (!string.IsNullOrEmpty(address) && !string.IsNullOrEmpty(portAttr))
-                {
-                    int port = int.Parse(portAttr);
-
-                    Debug.Log($"Using external Plex server: {address}:{port}");
-                    PlayerPrefs.SetString("plex_ip", address);
-                    PlayerPrefs.SetInt("plex_port", port);
-                    PlayerPrefs.Save();
-
-                    OnServerDiscovered?.Invoke(address, port);
-                    yield break;
-                }
-            }
         }
 
         Debug.LogWarning("No valid Plex server found.");

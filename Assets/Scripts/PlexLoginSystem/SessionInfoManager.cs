@@ -2,12 +2,14 @@ using System;
 using System.Text;
 using UnityEngine;
 
-public class PlexStorageManager 
+public class SessionInfoManager 
 {
     private const string NameKey = "server_name";
-    private const string TokenKey = "plex_token";
-    private const string IPKey = "plex_ip";
-    private const string PortKey = "plex_port";
+    private const string TokenKey = "server_token";
+    private const string IPKey = "server_ip";
+    private const string PortKey = "server_port";
+    private const string PlaylistName = "playlist_name";
+    private const string PlaylistCount = "playlist_movieCount";
 
     #region Save Methods
     public static void SaveName(string name)
