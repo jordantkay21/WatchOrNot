@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Xml;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -20,6 +21,7 @@ public class PlexDataFetcher : MonoBehaviour
     public event Action OnTokenRequired;
     public event Action OnServerListBuilt;
     public event Action<string> OnErrorOccured;
+    public event Action OnPlaylistBuilt;
 
     private const string PlexHeaders = "application/xml";
 
@@ -29,6 +31,20 @@ public class PlexDataFetcher : MonoBehaviour
         else Destroy(gameObject);
     }
 
+    #region Utility Methods
+    private void AttachPlexHeaders(UnityWebRequest req)
+    {
+        req.SetRequestHeader("Accept", PlexHeaders);
+        req.SetRequestHeader("X-Plex-Client-Identifier", clientIdentifier);
+        req.SetRequestHeader("X-Plex-Product", product);
+        req.SetRequestHeader("X-Plex-Version", "1.0");
+        req.SetRequestHeader("X-Plex-Platform", Application.platform.ToString());
+        req.SetRequestHeader("X-Plex-Device-Name", deviceName);
+    }
+
+    #endregion
+
+    #region Device Authorization
     public void InspectToken()
     {
         string storedToken = SessionInfoManager.LoadToken();
@@ -44,7 +60,6 @@ public class PlexDataFetcher : MonoBehaviour
             OnTokenRequired?.Invoke();
         }
     }
-
     IEnumerator ValidateToken(string token)
     {
         string url = "https://plex.tv/api/resources?includeHttps=1";
@@ -66,12 +81,10 @@ public class PlexDataFetcher : MonoBehaviour
             OnTokenRequired?.Invoke();
         }
     }
-
     public void AuthorizeDevice()
     {
         StartCoroutine(GetPin());
     }
-
     IEnumerator GetPin()
     {
         string url = "https://plex.tv/pins.xml?strong=true";
@@ -104,7 +117,6 @@ public class PlexDataFetcher : MonoBehaviour
 
         StartCoroutine(PollForAuth(pinId));
     }
-
     IEnumerator PollForAuth(string pin) 
     {
         string url = $"https://plex.tv/pins/{pin}.xml";
@@ -147,6 +159,9 @@ public class PlexDataFetcher : MonoBehaviour
         OnErrorOccured?.Invoke("Token request timed out.");
     }
 
+    #endregion
+
+    #region Server Selection
     public void BuildServerList(string token)
     {
         StartCoroutine(GetPlexServer(token));
@@ -155,7 +170,7 @@ public class PlexDataFetcher : MonoBehaviour
     {
         string url = "https://plex.tv/api/resources?includeHttps=1";
         UnityWebRequest req = UnityWebRequest.Get(url);
-        //Attach Plex Headers
+        AttachPlexHeaders(req);
         req.SetRequestHeader("X-Plex-Token", token);
 
         yield return req.SendWebRequest();
@@ -218,13 +233,153 @@ public class PlexDataFetcher : MonoBehaviour
 
     }
 
-    private void AttachPlexHeaders(UnityWebRequest req)
+    #endregion
+
+    #region Playlist Selection
+
+
+    public void BuildPlaylistList(string token, string serverUri)
     {
-        req.SetRequestHeader("Accept", PlexHeaders);
-        req.SetRequestHeader("X-Plex-Client-Identifier", clientIdentifier);
-        req.SetRequestHeader("X-Plex-Product", product);
-        req.SetRequestHeader("X-Plex-Version", "1.0");
-        req.SetRequestHeader("X-Plex-Platform", Application.platform.ToString());
-        req.SetRequestHeader("X-Plex-Device-Name", deviceName);
+        StartCoroutine(GetPlexPlaylist(token, serverUri));
     }
+    IEnumerator GetPlexPlaylist(string token, string serverUri)
+    {
+        string url = $"{serverUri}/playlists";
+        UnityWebRequest req = UnityWebRequest.Get(url);
+        AttachPlexHeaders(req);
+        req.SetRequestHeader("X-Plex-Token", token);
+
+        yield return req.SendWebRequest();
+
+        if (req.result != UnityWebRequest.Result.Success)
+        {
+            Debug.LogError($"[PlexAuthManager] [GetPlexPlaylist] | Failed to get playlist \n {req.error}");
+            yield break;
+        }
+
+        string response = req.downloadHandler.text;
+
+        Debug.Log($"[PlexAuthManager] [GetPlexPlaylist] | Server Response \n {response}");
+
+        //Create list of playlists
+        var doc = new XmlDocument();
+        doc.LoadXml(response);
+
+        var plNodes = doc.SelectNodes("//Playlist");
+
+        foreach (XmlNode pl in plNodes)
+        {
+            PlaylistInfo playlist = new PlaylistInfo();
+
+            playlist.server = SessionInfoManager.LoadCurrentServer();
+            playlist.title = pl.Attributes["title"]?.Value;
+            playlist.ratingKey = pl.Attributes["ratingKey"]?.Value;
+            playlist.uri = pl.Attributes["uri"]?.Value;
+            playlist.movieCount = pl.Attributes["leafCount"]?.Value;
+
+            SessionInfoManager.AddPlaylist(playlist);
+            Debug.Log($"[PlexDataFetcher] [GetPlexPlaylist] | Successfully added the following playlist: \n {playlist}");
+                
+        }
+
+        SessionInfoManager.SavePlaylistList();
+        OnPlaylistBuilt?.Invoke();
+    }
+    public void FetchPlaylistItems()
+    {
+        StartCoroutine(FetchPlaylistItemsCoroutine());
+    }
+
+    IEnumerator FetchPlaylistItemsCoroutine()
+    {
+        string token = SessionInfoManager.LoadToken();
+        string serverUri = SessionInfoManager.LoadCurrentServer().uri;
+        string plRatingKey = SessionInfoManager.LoadCurrentPlaylist().ratingKey;
+
+        string itemUrl = $"{serverUri}/playlists/{plRatingKey}/items?X-Plex-Token={token}";
+
+        UnityWebRequest itemsReq = UnityWebRequest.Get(itemUrl);
+        AttachPlexHeaders(itemsReq);
+
+        yield return itemsReq.SendWebRequest();
+
+        if(itemsReq.result != UnityWebRequest.Result.Success)
+        {
+            Debug.LogError($"Failed to get playlist items: {itemsReq.error}");
+            yield break;
+        }
+
+        string response = itemsReq.downloadHandler.text;
+        Debug.Log($"[PlexAuthManager] [FetchPlaylistItemsCoroutine] | Playlist Response \n {response}");
+
+        XmlDocument itemsDoc = new XmlDocument();
+        itemsDoc.LoadXml(response);
+        XmlNodeList videoNodes = itemsDoc.GetElementsByTagName("Video");
+
+        int total = videoNodes.Count;
+
+        for (int i =0; i < total; i++)
+        {
+            XmlNode video = videoNodes[i];
+
+            var genreNodes = video.SelectNodes("Genre");
+            List<string> genreList = new List<string>();
+
+            var durationAttr = video.Attributes["duration"];
+            var ratingKeyAttr = video.Attributes["ratingKey"];
+            var titleAttr = video.Attributes["title"];
+            var yearAttr = video.Attributes["year"];
+            var summaryAttr = video.Attributes["summary"];
+            var primaryExtraKeyAttr = video.Attributes["primaryExtraKey"];
+            var thumbAttr = video.Attributes["thumb"];
+
+            TimeSpan durationTime;
+
+            foreach (XmlNode genreNode in genreNodes)
+            {
+                if (genreNode.Attributes["tag"] != null)
+                    genreList.Add(genreNode.Attributes["tag"].Value);
+            }
+
+
+            var movie = new MovieInfo
+            {
+                playlist = SessionInfoManager.LoadCurrentPlaylist(),
+                ratingKey = ratingKeyAttr?.Value,
+                title = titleAttr?.Value,
+                summary = summaryAttr?.Value,
+                year = int.Parse(yearAttr?.Value ?? "0"),
+                thumbUrl = $"{serverUri}{thumbAttr?.Value}?X-Plex-Token={token}",
+                genres = string.Join(",", genreList),
+                primaryExtraKey = primaryExtraKeyAttr?.Value,
+                
+            };
+
+            if (durationAttr != null && long.TryParse(durationAttr.Value, out long durationMs))
+            {
+                durationTime = TimeSpan.FromMilliseconds(durationMs);
+                movie.duration = $"{(int)durationTime.TotalHours}h {durationTime.Minutes:D2}m";
+            }
+            else
+            {
+                movie.duration = "N/A";
+            }
+
+            SessionInfoManager.AddMovie(movie);
+
+            Debug.Log($"[FlexDataFetcher][FetchPlaylistItemsCoroutine] | Movie Successfully Added to the Movie List. " +
+                $"\n New Count is {SessionInfoManager.GetPlaylistInfo().Count}." +
+                $"\n Added Movie: {movie.title}" +
+                $"\n {movie}");
+        }
+
+        SessionInfoManager.SavePlaylistMovieList();
+    }
+    
+    #endregion
+
+
+
+
+
 }

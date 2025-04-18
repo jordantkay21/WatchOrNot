@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using UnityEngine;
 
@@ -29,14 +30,27 @@ public class ServerInfo
 public class PlaylistInfo
 {
     public ServerInfo server;
-    public string ratingKey;
     public string title;
+    public string ratingKey;
+    public string uri;
     public string movieCount = "leafCount";
+
+    public override string ToString()
+    {
+        return
+            $" <color=red>- Server: {server.name} </color>" +
+            $"\n - Title: {title} " +
+            $"\n - RatingKey {ratingKey} " +
+            $"\n - URI: {uri} " +
+            $"\n - movieCount = {movieCount}";
+            
+    }
 }
 
 [Serializable]
 public class MovieInfo
 {
+    public PlaylistInfo playlist;
     public string title;
     public int year;
     public string ratingKey;
@@ -47,6 +61,19 @@ public class MovieInfo
     public string trailerUrl;
     public string genres;
     public string duration;
+    public string primaryExtraKey;
+
+    public override string ToString()
+    {
+        return
+            $"<color=red>- Playlist: {playlist.title} </color>" +
+            $"\n - Title: {title}" +
+            $"\n - Year: {year}" +
+            $"\n - Rating Key: {ratingKey}" +
+            $"\n - Summary: {summary} " +
+            $"\n - Genres: {genres} " +
+            $"\n - Duration: {duration} ";
+    }
 }
 
 public class SessionInfoManager 
@@ -61,6 +88,30 @@ public class SessionInfoManager
     private static readonly List<ServerInfo> serverList = new();
     private static ServerInfo currentServer;
 
+    private static readonly List<PlaylistInfo> playlistList = new();
+    private static PlaylistInfo currentPlaylist;
+
+    private static readonly List<MovieInfo> movieInfoList = new();
+
+    #region Wrapper Classes
+    [Serializable]
+    public class ServerInfoListWrapper
+    {
+        public List<ServerInfo> servers;
+    }
+
+    [Serializable]
+    public class PlaylistInfoListWrapper
+    {
+        public List<PlaylistInfo> playlists;
+    }
+
+    [Serializable]
+    public class MovieListWrapper
+    {
+        public List<MovieInfo> movies;
+    }
+    #endregion
     #region Save Methods
     public static void SaveName(string name)
     {
@@ -89,6 +140,17 @@ public class SessionInfoManager
         PlayerPrefs.SetString("server_list", json);
         PlayerPrefs.Save();
     }
+
+    public static void SavePlaylistList()
+    {
+        PlaylistInfoListWrapper wrapper = new PlaylistInfoListWrapper { playlists = playlistList };
+        string json = JsonUtility.ToJson(wrapper);
+        PlayerPrefs.SetString("playlist_list", json);
+        PlayerPrefs.Save();
+
+        Debug.Log($"[SessionInfoManager] [SavePlaylistList] | List of playlists have been saved.");
+    }
+
     #endregion
 
     #region Load Methods
@@ -127,9 +189,30 @@ public class SessionInfoManager
         }
     }
 
+    public static List<PlaylistInfo> LoadSavedPlaylists()
+    {
+        if (!PlayerPrefs.HasKey("playlist_list")) return new List<PlaylistInfo>();
+
+        string json = PlayerPrefs.GetString("playlist_list");
+
+        try
+        {
+            PlaylistInfoListWrapper wrapper = JsonUtility.FromJson<PlaylistInfoListWrapper>(json);
+            return wrapper?.playlists ?? new List<PlaylistInfo>();
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[SessionInfoManager] [LoadServers] | Failed to deserialize playlist list: \n {ex.Message}");
+            return new List<PlaylistInfo>();
+        }
+    }
+
     public static string LoadIP() => PlayerPrefs.GetString(IPKey, "localhost");
     public static int LoadPort() => PlayerPrefs.GetInt(PortKey, 32400);
     public static string LoadName() => PlayerPrefs.GetString(NameKey, "local server");
+
+    public static ServerInfo LoadCurrentServer() => currentServer;
+    public static PlaylistInfo LoadCurrentPlaylist() => currentPlaylist;
 
     #endregion
 
@@ -137,7 +220,12 @@ public class SessionInfoManager
 
     public static bool HasToken() => PlayerPrefs.HasKey(TokenKey);
     public static bool HasServerInfo() => PlayerPrefs.HasKey(IPKey) && PlayerPrefs.HasKey(PortKey);
-
+    public static bool HasCurrentServer() => currentServer != null;
+    public static void AddServer(ServerInfo server) => serverList.Add(server);
+    public static void AddPlaylist(PlaylistInfo playlist) => playlistList.Add(playlist);
+    public static void SetCurrentServer(ServerInfo server) => currentServer = server;
+    public static void SetCurrentPlaylist(PlaylistInfo playlist) => currentPlaylist = playlist;
+    public static List<ServerInfo> GetCachedServers() => serverList;
     public static void ClearAll()
     {
         PlayerPrefs.DeleteKey(TokenKey);
@@ -145,32 +233,56 @@ public class SessionInfoManager
         PlayerPrefs.DeleteKey(PortKey);
         PlayerPrefs.Save();
     }
-
-    public static void AddServer(ServerInfo server)
-    {
-        serverList.Add(server);
-    }
-    public static void SetCurrentServer(ServerInfo server)
-    {
-        currentServer = server;
-    }
-
-    public static ServerInfo GetCurrentServer()
-    {
-        return currentServer;
-    }
-
-    public static List<ServerInfo> GetCachedServers()
-    {
-        return serverList;
-    }
     #endregion
+    public static void AddMovie(MovieInfo movie) => movieInfoList.Add(movie);
+    public static List<MovieInfo> GetPlaylistInfo() => movieInfoList;
 
-    #region Wrapper Classes
-    [Serializable]
-    public class ServerInfoListWrapper
+    private static string SanitizeFileName(string input)
     {
-        public List<ServerInfo> servers;
+        foreach (char c in Path.GetInvalidFileNameChars())
+            input = input.Replace(c, '_');
+        return input;
     }
-    #endregion
+    private static string GetPlaylistCacheFilePath(string title, string movieCount)
+    {
+        string safeTitle = SanitizeFileName(title);
+        string fileName = $"playlist_{safeTitle}_{movieCount}.json";
+        return Path.Combine(Application.persistentDataPath, fileName);
+    }
+
+
+    public static void SavePlaylistMovieList()
+    {
+        string path = GetPlaylistCacheFilePath(currentPlaylist.title, movieInfoList.Count.ToString());
+
+        MovieListWrapper wrapper = new MovieListWrapper { movies = movieInfoList };
+        string json = JsonUtility.ToJson(wrapper, true);
+
+        File.WriteAllText(path, json);
+        Debug.Log($"[SessionInfoManager] [SavePlaylistMovieList] | Saved movie list to: {path}");
+    }
+
+    public static List<MovieInfo> LoadPlaylistMovieList(string title, string movieCount)
+    {
+        string path = GetPlaylistCacheFilePath(title, movieCount);
+
+        if (!File.Exists(path))
+        {
+            Debug.LogWarning($"[SessionInfoManager] [LoadPlaylistMovieList] | File not found: {path}");
+            return new List<MovieInfo>();
+        }
+
+        string json = File.ReadAllText(path);
+        try
+        {
+            MovieListWrapper wrapper = JsonUtility.FromJson<MovieListWrapper>(json);
+            return wrapper?.movies ?? new List<MovieInfo>();
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[SessionInfoManager] [LoadPlaylistMovieList] | Failed to parse file: {e.Message}");
+            return new List<MovieInfo>();
+        }
+    }
+
 }

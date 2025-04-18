@@ -95,7 +95,7 @@ public class ServerSelectionUIController : MonoBehaviour
             if (realIndex < servers.Count)
             {
                 SessionInfoManager.SetCurrentServer(servers[realIndex]);
-                Debug.Log($"[PlexSessionUIController] [OnConnectionButtonClicked] | Selected server: {servers[realIndex].name}");
+                Debug.Log($"[PlexSessionUIController] [UpdateServerDropdown] | Selected server: {servers[realIndex].name}");
                 selectPlaylistButton.gameObject.SetActive(true);
             }
         });
