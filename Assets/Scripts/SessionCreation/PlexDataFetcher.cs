@@ -4,20 +4,11 @@ using System.Xml;
 using UnityEngine;
 using UnityEngine.Networking;
 
-public class PlexAuthManager : MonoBehaviour
+public class PlexDataFetcher : MonoBehaviour
 {
-    [Serializable]
-    private class PlexPinResponse
-    {
-        public int id;
-        public string code;
-        public string client_identifier;
-        public string auth_token;
-    }
+    public static PlexDataFetcher Instance;
 
-    public static PlexAuthManager Instance;
-
-    public string clientIdentifier = "watch-or-not-client"; //Must be unique
+    public string clientIdentifier = "watch-or-not-client";
     public string product = "WatchOrNot";
     public string deviceName = "WatchOrNotGame";
 
@@ -25,23 +16,17 @@ public class PlexAuthManager : MonoBehaviour
     private string userCode;
 
     public event Action<string> OnCodeReceived;
-    public event Action<string> OnTokenReceived;
-    public event Action<string, int> OnServerDiscovered;
+    public event Action OnTokenValidation;
+    public event Action OnTokenRequired;
+    public event Action OnServerListBuilt;
     public event Action<string> OnErrorOccured;
 
-    private const string PlexHeaders = "application/json";
-
+    private const string PlexHeaders = "application/xml";
 
     private void Awake()
     {
-        if(Instance == null)
-        {
-            Instance = this;
-        }
-        else
-        {
-            Destroy(gameObject);
-        }
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
     }
 
     public void InspectToken()
@@ -50,13 +35,13 @@ public class PlexAuthManager : MonoBehaviour
 
         if (!string.IsNullOrEmpty(storedToken))
         {
-            //You have a saved token - validate it
+            //Token stored - Validate Token
             StartCoroutine(ValidateToken(storedToken));
         }
         else
         {
-            //Begin login flow via plex.tv/link
-            StartPlexLogin();
+            Debug.Log("[PlexDataFetcher] [ValidateToken] | Plex Token was not found");
+            OnTokenRequired?.Invoke();
         }
     }
 
@@ -72,21 +57,19 @@ public class PlexAuthManager : MonoBehaviour
 
         if(req.result == UnityWebRequest.Result.Success)
         {
-            Debug.Log("Stored Plex token is still valid.");
-            OnTokenReceived?.Invoke(token);
-            StartCoroutine(GetPlexServer(token));
+            Debug.Log($"[PlexDataFetcher] [ValidateToken] | Stored Plex token is still valid");
+            OnTokenValidation?.Invoke();
         }
         else
         {
-            Debug.LogWarning("Stored token is invalid. Starting new login...");
-            StartPlexLogin();
+            Debug.LogWarning($"[PlexDataFetcher] [ValidateToken] | Stored token is invalid.");
+            OnTokenRequired?.Invoke();
         }
     }
 
-    public void StartPlexLogin()
+    public void AuthorizeDevice()
     {
         StartCoroutine(GetPin());
-        DeviceAuthUIController.Instance.BeginLogin();
     }
 
     IEnumerator GetPin()
@@ -99,7 +82,7 @@ public class PlexAuthManager : MonoBehaviour
 
         if(req.result != UnityWebRequest.Result.Success)
         {
-            Debug.LogError($"Failed to get PIN: {req.error}");
+            Debug.LogError($"[PlexDataFetcher] [GetPin] - Failed to get PIN. \n {req.error}");
             OnErrorOccured?.Invoke(req.error);
             yield break;
         }
@@ -108,24 +91,24 @@ public class PlexAuthManager : MonoBehaviour
         var doc = new XmlDocument();
         doc.LoadXml(xml);
 
-        Debug.Log($"PlexAuthManager:GetPin - Pin Request XML \n {xml}");
+        Debug.Log($"[PlexDataFetcher] [GetPin] - Pin Request XML \n {xml}");
 
         var pinNode = doc.SelectSingleNode("//pin");
 
         pinId = pinNode["id"]?.InnerText;
         userCode = pinNode["code"]?.InnerText;
 
-        Debug.Log($"PlexAuthManager:GetPin - 4 digit code received: {userCode}");
+        Debug.Log($"[PlexDataFetcher] [GetPin] | 4 digit code received: {userCode}");
 
         OnCodeReceived?.Invoke(userCode);
 
         StartCoroutine(PollForAuth(pinId));
     }
 
-    IEnumerator PollForAuth(string pin)
+    IEnumerator PollForAuth(string pin) 
     {
         string url = $"https://plex.tv/pins/{pin}.xml";
-        float timeout = 600f; //expires in 10 mins
+        float timeout = 600f; //expires in 600 seconds (10 minutes)
         float timer = 0f;
 
         while (timer < timeout)
@@ -137,25 +120,24 @@ public class PlexAuthManager : MonoBehaviour
             if(req.result == UnityWebRequest.Result.Success)
             {
                 var xml = req.downloadHandler.text;
-                var doc = new System.Xml.XmlDocument();
+                var doc = new XmlDocument();
                 doc.LoadXml(xml);
 
-                Debug.Log($"PlexAuthManager:PollForAuth - Poll XML: {xml}");
+                Debug.Log($"[PlexDataFetcher] [PollForAuth] | Poll XML: \n {xml}");
 
                 var pinNode = doc.SelectSingleNode("//pin");
                 var token = pinNode["auth_token"]?.InnerText;
 
                 if (!string.IsNullOrEmpty(token))
                 {
-                    Debug.Log($"PlexAuthManager:PollForAuth - Plex Auth Token Recieved: {token}");
-                    OnTokenReceived?.Invoke(token);
+                    Debug.Log($"[PlexAuthManager] [PollForAuth] | Plex Auth Token Recieved: {token}");
+                    OnTokenValidation?.Invoke();
                     SessionInfoManager.SaveToken(token);
-                    StartCoroutine(GetPlexServer(token));
                     yield break;
                 }
             }
 
-            Debug.Log($"PlexAuthManager:PollForAuth - Polling... still waiting for user to link Plex.");
+            Debug.Log($"[PlexAuthManager] [PollForAuth] | Polling... still waiting for user to link Plex.");
 
             yield return new WaitForSeconds(2f);
             timer += 2f;
@@ -165,26 +147,30 @@ public class PlexAuthManager : MonoBehaviour
         OnErrorOccured?.Invoke("Token request timed out.");
     }
 
+    public void BuildServerList(string token)
+    {
+        StartCoroutine(GetPlexServer(token));
+    }
     IEnumerator GetPlexServer(string token)
     {
         string url = "https://plex.tv/api/resources?includeHttps=1";
         UnityWebRequest req = UnityWebRequest.Get(url);
-        AttachPlexHeaders(req);
+        //Attach Plex Headers
         req.SetRequestHeader("X-Plex-Token", token);
-
 
         yield return req.SendWebRequest();
 
-        if (req.result != UnityWebRequest.Result.Success)
+        if(req.result != UnityWebRequest.Result.Success)
         {
-            Debug.LogError($"Failed to get servers: {req.error}");
+            Debug.LogError($"[PlexAuthManager] [GetPlexServer] | Failed to get devices \n {req.error}");
             yield break;
         }
 
         string response = req.downloadHandler.text;
-        Debug.Log($"Server response: {response}");
 
-        // Optionally parse response for first server IP + port
+        Debug.Log($"[PlexAuthManager] [GetPlexServer] | Device Response \n {response}");
+
+        //Create list of servers
         var doc = new XmlDocument();
         doc.LoadXml(response);
 
@@ -194,36 +180,41 @@ public class PlexAuthManager : MonoBehaviour
         {
             if (device.Attributes["provides"]?.Value == "server")
             {
-                string serverName = device.Attributes["name"]?.Value;
-                SessionInfoManager.SaveName(serverName);
+                var server = new ServerInfo();
+
+                server.name = device.Attributes["name"]?.Value;
+                server.product = device.Attributes["product"]?.Value;
+                server.provides = device.Attributes["provides"]?.Value;
+                server.publicAddress = device.Attributes["publicAddress"]?.Value;
 
                 var connections = device.SelectNodes("Connection");
 
                 foreach (XmlNode connection in connections)
                 {
-                    var local = connection.Attributes["local"]?.Value;
                     var address = connection.Attributes["address"]?.Value;
-                    var portAttr = connection.Attributes["port"]?.Value;
 
-                    if (local == "1" && !string.IsNullOrEmpty(address) && !string.IsNullOrEmpty(portAttr))
+                    if(address == server.publicAddress)
                     {
-                        int port = int.Parse(portAttr);
-
-                        Debug.Log($"PlexAuthManager:GetPlexServer - Found {serverName} Plex Server : {address}:{port}");
-                        SessionInfoManager.SaveServer(address, port);
-
-
-                        OnServerDiscovered?.Invoke(address, port);
-                        yield break;
+                        server.port = connection.Attributes["port"]?.Value;
+                        server.uri = connection.Attributes["uri"]?.Value;
                     }
+
                 }
+
+                SessionInfoManager.AddServer(server);
+
+                Debug.Log($"[PlexDataFetcher] [GetPlexServer] | Successfully added the following server: \n {server}");
             }
-
-
         }
 
-        Debug.LogWarning("No valid Plex server found.");
-        OnErrorOccured?.Invoke("No valid Plex server found.");
+        if (SessionInfoManager.GetCachedServers().Count == 0)
+            Debug.LogWarning("No valid Plex server found.");
+        else
+        {
+            SessionInfoManager.SaveServerList();
+            OnServerListBuilt?.Invoke();
+        }
+
 
     }
 
@@ -236,6 +227,4 @@ public class PlexAuthManager : MonoBehaviour
         req.SetRequestHeader("X-Plex-Platform", Application.platform.ToString());
         req.SetRequestHeader("X-Plex-Device-Name", deviceName);
     }
-
-
 }

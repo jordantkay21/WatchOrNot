@@ -6,20 +6,6 @@ using UnityEngine;
 using UnityEngine.Networking;
 using System;
 
-[System.Serializable]
-public class MovieInfo
-{
-    public string title;
-    public int year;
-    public string ratingKey;
-    public string thumbUrl;
-    public Texture2D posterTexture;
-
-    public string summary;
-    public string trailerUrl;
-    public string genres;
-    public string duration;
-}
 public class PlexPlaylistFetcher
 {
     [System.Serializable]
