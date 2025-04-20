@@ -294,6 +294,8 @@ public class PlexDataFetcher : MonoBehaviour
 
     IEnumerator FetchPlaylistItemsCoroutine()
     {
+        SessionInfoManager.ClearPlaylistInfo();
+
         string token = SessionInfoManager.LoadToken();
         string serverUri = SessionInfoManager.LoadCurrentServer().uri;
         string plRatingKey = SessionInfoManager.LoadCurrentPlaylist().ratingKey;

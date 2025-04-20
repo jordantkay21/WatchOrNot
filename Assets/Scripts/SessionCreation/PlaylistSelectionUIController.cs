@@ -86,6 +86,7 @@ public class PlaylistSelectionUIController : MonoBehaviour
 
             if (realIndex < playlists.Count)
             {
+                PlaylistDisplayUIController.Instance.Hide();
                 SessionInfoManager.SetCurrentPlaylist(playlists[realIndex]);
                 Debug.Log($"[PlaylistSelectionUIController][UpdatePlaylistDropdown] | Selected playlist: { playlists[realIndex]}");
                 PlexDataFetcher.Instance.FetchPlaylistItems();

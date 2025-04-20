@@ -313,4 +313,8 @@ public class SessionInfoManager
         return Path.Combine(Application.persistentDataPath, "PosterCache", fileName);
     }
 
+    public static void ClearPlaylistInfo()
+    {
+        movieInfoList.Clear();
+    }
 }

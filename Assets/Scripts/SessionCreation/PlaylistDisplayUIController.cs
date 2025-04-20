@@ -5,13 +5,31 @@ using UnityEngine.UI;
 
 public class PlaylistDisplayUIController : MonoBehaviour
 {
+    public static PlaylistDisplayUIController Instance;
+
     public GameObject playlistScrollView;
     public Transform playlistDisplayPanel;
     public GameObject movieInfoContainerPrefab;
 
+    private void Awake()
+    {
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
+    }
+
     private void Start()
     {
         PlexDataFetcher.Instance.OnPlaylistItemsFetched += DisplayLoadedPlaylist;
+    }
+
+    public void Show()
+    {
+        playlistScrollView.SetActive(true);
+    }
+
+    public void Hide()
+    {
+        playlistScrollView.SetActive(false);
     }
 
     public void DisplayLoadedPlaylist(List<MovieInfo> movies)
