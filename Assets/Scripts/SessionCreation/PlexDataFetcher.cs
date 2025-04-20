@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Xml;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -22,6 +23,7 @@ public class PlexDataFetcher : MonoBehaviour
     public event Action OnServerListBuilt;
     public event Action<string> OnErrorOccured;
     public event Action OnPlaylistBuilt;
+    public event Action<List<MovieInfo>> OnPlaylistItemsFetched;
 
     private const string PlexHeaders = "application/xml";
 
@@ -373,12 +375,104 @@ public class PlexDataFetcher : MonoBehaviour
                 $"\n {movie}");
         }
 
+        yield return StartCoroutine(ProcessAllAssetsCoroutine(SessionInfoManager.GetPlaylistInfo()));
+
+        OnPlaylistItemsFetched?.Invoke(SessionInfoManager.GetPlaylistInfo());
         SessionInfoManager.SavePlaylistMovieList();
+    }
+
+    public IEnumerator DownloadPoster(MovieInfo movie)
+    {
+        if (string.IsNullOrEmpty(movie.thumbUrl)) yield break;
+
+        string path = SessionInfoManager.GetPosterPath(movie);
+
+        //Skip if already cached
+        if (File.Exists(path))
+        {
+            byte[] fileData = File.ReadAllBytes(path);
+            Texture2D tex = new Texture2D(2, 2);
+            tex.LoadImage(fileData);
+            movie.posterTexture = tex;
+
+            Debug.Log($"[PlexDataFetcher][DownloadPoster] Movie Poster already saved for {movie.title}");
+            yield break;
+        }
+
+        //Download if not
+        using UnityWebRequest req = UnityWebRequestTexture.GetTexture(movie.thumbUrl);
+        yield return req.SendWebRequest();
+
+        if (req.result == UnityWebRequest.Result.Success)
+        {
+            Texture2D tex = DownloadHandlerTexture.GetContent(req);
+            movie.posterTexture = tex;
+
+            //Let SessionInfoManager handle saving
+            SessionInfoManager.SavePoster(movie, tex);
+        }
+        else
+        {
+            Debug.LogWarning($"[PlexDataFetcher][DownloadPoster] Failed for {movie.title}: \n {req.error}");
+        }
+    }
+
+    public IEnumerator AssignTrailerFromTMDB(MovieInfo movie)
+    {
+        bool finished = false;
+
+        //kick off async TMDB fetch
+        var task = TMDBMetadataFetcher.FetchMetadataAsync(movie);
+        task.ContinueWith(t => finished = true);
+
+        //wait for task to finish
+        while (!finished)
+            yield return null;
+
+        if (!string.IsNullOrEmpty(movie.trailerUrl))
+        {
+            Debug.Log($"[PlexDataFetcher][AssignTrailerFromTMDB] Assigned TMDB trailer for {movie.title} : {movie.trailerUrl}");
+        }
+        else
+        {
+            Debug.LogWarning($"[PlexDataFetcher][AssignTrailerFromTMDB] No Trailer available for {movie.title} via TMDB.");
+            movie.trailerUrl = "N/A";
+        }
     }
     
     #endregion
 
+    public void ProcessAllAssets(List<MovieInfo> movies, Action onComplete = null)
+    {
+        StartCoroutine(ProcessAllAssetsCoroutine(movies, onComplete));
+    }
 
+    private IEnumerator ProcessAllAssetsCoroutine(List<MovieInfo> movies, Action onComplete = null)
+    {
+        LoadingUIController.Instance.Show();
+
+        for (int i=0; i < movies.Count; i++)
+        {
+            var movie = movies[i];
+            float progress = (float)i / movies.Count;
+
+            LoadingUIController.Instance.UpdateProgress(progress);
+            LoadingUIController.Instance.UpdateStatus($"Processing: {movie.title}");
+
+            Debug.Log($"[PlexDataFetcher][ProcessAllAssetsCoroutine] Downloading assets for: {movie.title}");
+
+            yield return StartCoroutine(DownloadPoster(movie));
+            yield return StartCoroutine(AssignTrailerFromTMDB(movie));
+        }
+
+        LoadingUIController.Instance.UpdateProgress(1f);
+        LoadingUIController.Instance.UpdateStatus("Complete!");
+        yield return new WaitForSeconds(0.5f);
+
+        LoadingUIController.Instance.Hide();
+        Debug.Log($"[PlexDataFetcher][ProcessAllAssetsCoroutine] All movie assets processed.");
+        onComplete?.Invoke();
+    }
 
 
 

@@ -285,4 +285,32 @@ public class SessionInfoManager
         }
     }
 
+    public static void SavePoster(MovieInfo movie, Texture2D tex)
+    {
+        string filename = $"{ SanitizeFileName(movie.title)}_{movie.year}.png";
+        string path = Path.Combine(Application.persistentDataPath, "PosterCache", filename);
+
+        if (!Directory.Exists(Path.GetDirectoryName(path)))
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+
+        File.WriteAllBytes(path, tex.EncodeToPNG());
+    }
+
+    public static string GetTrailerPath(MovieInfo movie)
+    {
+        string filename = $"{SanitizeFileName(movie.title)}_{movie.year}.mp4";
+        return Path.Combine(Application.persistentDataPath, "Trailers", filename);
+    }
+
+    public static void SetTrailerPath(MovieInfo movie, string path)
+    {
+        movie.trailerUrl = path;
+    }
+
+    public static string GetPosterPath(MovieInfo movie)
+    {
+        string fileName = $"{SanitizeFileName(movie.title)}_{movie.year}.png";
+        return Path.Combine(Application.persistentDataPath, "PosterCache", fileName);
+    }
+
 }

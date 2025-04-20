@@ -67,11 +67,11 @@ public class GameManager : MonoBehaviour
     async void Start()
     {
         PlexPlaylistFetcher fetcher = new PlexPlaylistFetcher(plexToken, plexIp, plexPort, playlistName);
-        var progress = new Progress<float>(p => LoadingUIManager.Instance.UpdateProgress(p));
-        System.Action<string> status = msg => LoadingUIManager.Instance.UpdateStatus(msg);
+        var progress = new Progress<float>(p => LoadingUIController.Instance.UpdateProgress(p));
+        System.Action<string> status = msg => LoadingUIController.Instance.UpdateStatus(msg);
 
         rankingUiManager.HideMovieInfo();
-        LoadingUIManager.Instance.Show();
+        LoadingUIController.Instance.Show();
 
         if (fetcher.CacheExists())
         {
@@ -84,7 +84,7 @@ public class GameManager : MonoBehaviour
             Debug.Log($"{loadedMovies?.Count} movies loaded from Plex.");
         }
 
-        LoadingUIManager.Instance.Hide();
+        LoadingUIController.Instance.Hide();
 
         if (loadedMovies == null || loadedMovies.Count == 0)
         {

@@ -3,9 +3,9 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class LoadingUIManager : MonoBehaviour
+public class LoadingUIController : MonoBehaviour
 {
-    public static LoadingUIManager Instance;
+    public static LoadingUIController Instance;
 
     public GameObject loadingPanel;
     public Slider progressBar;
