@@ -25,9 +25,9 @@ public class PlexAccountStatus : MonoBehaviour
 
     public void UpdateStatusDisplay()
     {
-        if(SessionInfoManager.HasToken() && SessionInfoManager.HasServerInfo())
+        if(Proto_SessionInfoManager.HasToken() && Proto_SessionInfoManager.HasServerInfo())
         {
-            string name = SessionInfoManager.LoadName();
+            string name = Proto_SessionInfoManager.LoadName();
 
             statusText.text = $"Connected to {name}";
             connectionButtonText.text = "Disconnect";
@@ -41,10 +41,10 @@ public class PlexAccountStatus : MonoBehaviour
 
     private void HandleConnection()
     {
-        if (SessionInfoManager.HasToken())
+        if (Proto_SessionInfoManager.HasToken())
         {
             Debug.Log("Logging out of Plex...");
-            SessionInfoManager.ClearAll();
+            Proto_SessionInfoManager.ClearAll();
             UpdateStatusDisplay();
         }
         else

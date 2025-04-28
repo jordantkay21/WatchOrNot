@@ -2,9 +2,9 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class DeviceAuthUIController : MonoBehaviour
+public class Proto_DeviceAuthUIController : MonoBehaviour
 {
-    public static DeviceAuthUIController Instance;
+    public static Proto_DeviceAuthUIController Instance;
 
     [Header("UI Elements")]
     public GameObject plexConnectionPanel;

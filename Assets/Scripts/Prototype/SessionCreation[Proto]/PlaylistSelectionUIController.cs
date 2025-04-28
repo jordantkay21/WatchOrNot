@@ -10,7 +10,10 @@ public class PlaylistSelectionUIController : MonoBehaviour
 
     public GameObject PlaylistSelectionPanel;
 
+    public TextMeshProUGUI messageText;
+    public TextMeshProUGUI serverText;
     public Button retrievePlaylistButton;
+    public Button playButton;
 
     public TMP_Dropdown playlistDropdown; 
 
@@ -29,6 +32,7 @@ public class PlaylistSelectionUIController : MonoBehaviour
     private void Start()
     {
         PlexDataFetcher.Instance.OnPlaylistBuilt += UpdatePlaylistDropdown;
+        PlexDataFetcher.Instance.OnPlaylistItemsFetched += (_) => playButton.gameObject.SetActive(true);
 
         //Bind UI actions
         retrievePlaylistButton.onClick.AddListener(OnRetrievePlaylistButtonClicked);
@@ -38,26 +42,34 @@ public class PlaylistSelectionUIController : MonoBehaviour
     public void StartSelectionPhase()
     {
         PlaylistSelectionPanel.SetActive(true);
+
+        messageText.gameObject.SetActive(false);
+        playButton.gameObject.SetActive(false);
+
+        serverText.text = Proto_SessionInfoManager.LoadCurrentServer().name;
+
+        OnRetrievePlaylistButtonClicked();
+
     }
     private void OnRetrievePlaylistButtonClicked()
     {
-        if (!SessionInfoManager.HasToken())
+        if (!Proto_SessionInfoManager.HasToken())
         {
             Debug.LogWarning("$[PlaylistSelectionUIController][OnRetrievePlaylistButtonClicked] | No Token available. Cannot retrieve playlist.");
             return;
         }
 
-        if (!SessionInfoManager.HasCurrentServer())
+        if (!Proto_SessionInfoManager.HasCurrentServer())
         {
             Debug.LogWarning("$[PlaylistSelectionUIController][OnRetrievePlaylistButtonClicked] | No Server available. Cannot retrieve playlist.");
             return;
         }
 
         //Rebuild Playlist List
-        SessionInfoManager.LoadSavedPlaylists().Clear();
+        Proto_SessionInfoManager.LoadSavedPlaylists().Clear();
 
-        string token = SessionInfoManager.LoadToken();
-        string serverUri = SessionInfoManager.LoadCurrentServer().uri;
+        string token = Proto_SessionInfoManager.LoadToken();
+        string serverUri = Proto_SessionInfoManager.LoadCurrentServer().uri;
 
         PlexDataFetcher.Instance.BuildPlaylistList(token, serverUri);
 
@@ -65,7 +77,7 @@ public class PlaylistSelectionUIController : MonoBehaviour
 
     private void UpdatePlaylistDropdown()
     {
-        List<PlaylistInfo> playlists = SessionInfoManager.LoadSavedPlaylists();
+        List<PlaylistInfo> playlists = Proto_SessionInfoManager.LoadSavedPlaylists();
 
         Debug.Log($"[PlaylistSelectionUIController] [UpdatePlaylistDropdown] | Retrieved list of playlists from SessionInfoManager. List count = {playlists.Count}");
 
@@ -86,12 +98,18 @@ public class PlaylistSelectionUIController : MonoBehaviour
 
             if (realIndex < playlists.Count)
             {
-                PlaylistDisplayUIController.Instance.Hide();
-                SessionInfoManager.SetCurrentPlaylist(playlists[realIndex]);
+                PlaylistDisplayUIController.Instance.Hide();  
+                Proto_SessionInfoManager.SetCurrentPlaylist(playlists[realIndex]);
                 Debug.Log($"[PlaylistSelectionUIController][UpdatePlaylistDropdown] | Selected playlist: { playlists[realIndex]}");
                 PlexDataFetcher.Instance.FetchPlaylistItems();
+
             }
         });
+
+    }
+
+    private void AdvancePhase()
+    {
 
     }
 }

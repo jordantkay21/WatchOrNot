@@ -62,7 +62,7 @@ public class ServerSelectionUIController : MonoBehaviour
     {
         retrieveServerButton.gameObject.SetActive(true);
 
-        if(SessionInfoManager.LoadSavedServers().Count > 0)
+        if(Proto_SessionInfoManager.LoadSavedServers().Count > 0)
         {
             retrieveServerButtonText.text = "Refresh Servers";
             UpdateServerDropdown();
@@ -75,7 +75,7 @@ public class ServerSelectionUIController : MonoBehaviour
 
     private void UpdateServerDropdown()
     {
-        List<ServerInfo> servers = SessionInfoManager.LoadSavedServers();
+        List<ServerInfo> servers = Proto_SessionInfoManager.LoadSavedServers();
 
         List<string> options = new List<string> { "-- Select a server --" };
         options.AddRange(servers.Select(s => $"{s.name} ({s.publicAddress})"));
@@ -94,7 +94,7 @@ public class ServerSelectionUIController : MonoBehaviour
 
             if (realIndex < servers.Count)
             {
-                SessionInfoManager.SetCurrentServer(servers[realIndex]);
+                Proto_SessionInfoManager.SetCurrentServer(servers[realIndex]);
                 Debug.Log($"[PlexSessionUIController] [UpdateServerDropdown] | Selected server: {servers[realIndex].name}");
                 selectPlaylistButton.gameObject.SetActive(true);
             }
@@ -106,7 +106,7 @@ public class ServerSelectionUIController : MonoBehaviour
         if (_isConnected)
         {
             //Disconnect
-            SessionInfoManager.ClearAll();
+            Proto_SessionInfoManager.ClearAll();
             _isConnected = false;
 
             OnTokenRequired();
@@ -123,15 +123,15 @@ public class ServerSelectionUIController : MonoBehaviour
 
     private void OnRetrieveServerButtonClicked()
     {
-        if (!SessionInfoManager.HasToken())
+        if (!Proto_SessionInfoManager.HasToken())
         {
             Debug.LogWarning("$[PlexSessionUIController][OnConnectionButtonClicked] | No Token available. Cannot retrieve servers.");
             return;
         }
 
         //Rebuild server list
-        SessionInfoManager.LoadSavedServers().Clear();
-        string token = SessionInfoManager.LoadToken();
+        Proto_SessionInfoManager.LoadSavedServers().Clear();
+        string token = Proto_SessionInfoManager.LoadToken();
         PlexDataFetcher.Instance.BuildServerList(token);
     }
 

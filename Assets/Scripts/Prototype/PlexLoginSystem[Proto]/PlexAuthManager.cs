@@ -46,7 +46,7 @@ public class PlexAuthManager : MonoBehaviour
 
     public void InspectToken()
     {
-        string storedToken = SessionInfoManager.LoadToken();
+        string storedToken = Proto_SessionInfoManager.LoadToken();
 
         if (!string.IsNullOrEmpty(storedToken))
         {
@@ -86,7 +86,7 @@ public class PlexAuthManager : MonoBehaviour
     public void StartPlexLogin()
     {
         StartCoroutine(GetPin());
-        DeviceAuthUIController.Instance.BeginLogin();
+        Proto_DeviceAuthUIController.Instance.BeginLogin();
     }
 
     IEnumerator GetPin()
@@ -149,7 +149,7 @@ public class PlexAuthManager : MonoBehaviour
                 {
                     Debug.Log($"PlexAuthManager:PollForAuth - Plex Auth Token Recieved: {token}");
                     OnTokenReceived?.Invoke(token);
-                    SessionInfoManager.SaveToken(token);
+                    Proto_SessionInfoManager.SaveToken(token);
                     StartCoroutine(GetPlexServer(token));
                     yield break;
                 }
@@ -195,7 +195,7 @@ public class PlexAuthManager : MonoBehaviour
             if (device.Attributes["provides"]?.Value == "server")
             {
                 string serverName = device.Attributes["name"]?.Value;
-                SessionInfoManager.SaveName(serverName);
+                Proto_SessionInfoManager.SaveName(serverName);
 
                 var connections = device.SelectNodes("Connection");
 
@@ -210,7 +210,7 @@ public class PlexAuthManager : MonoBehaviour
                         int port = int.Parse(portAttr);
 
                         Debug.Log($"PlexAuthManager:GetPlexServer - Found {serverName} Plex Server : {address}:{port}");
-                        SessionInfoManager.SaveServer(address, port);
+                        Proto_SessionInfoManager.SaveServer(address, port);
 
 
                         OnServerDiscovered?.Invoke(address, port);

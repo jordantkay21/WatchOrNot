@@ -49,7 +49,7 @@ public class PlexDataFetcher : MonoBehaviour
     #region Device Authorization
     public void InspectToken()
     {
-        string storedToken = SessionInfoManager.LoadToken();
+        string storedToken = Proto_SessionInfoManager.LoadToken();
 
         if (!string.IsNullOrEmpty(storedToken))
         {
@@ -146,7 +146,7 @@ public class PlexDataFetcher : MonoBehaviour
                 {
                     Debug.Log($"[PlexAuthManager] [PollForAuth] | Plex Auth Token Recieved: {token}");
                     OnTokenValidation?.Invoke();
-                    SessionInfoManager.SaveToken(token);
+                    Proto_SessionInfoManager.SaveToken(token);
                     yield break;
                 }
             }
@@ -218,17 +218,17 @@ public class PlexDataFetcher : MonoBehaviour
 
                 }
 
-                SessionInfoManager.AddServer(server);
+                Proto_SessionInfoManager.AddServer(server);
 
                 Debug.Log($"[PlexDataFetcher] [GetPlexServer] | Successfully added the following server: \n {server}");
             }
         }
 
-        if (SessionInfoManager.GetCachedServers().Count == 0)
+        if (Proto_SessionInfoManager.GetCachedServers().Count == 0)
             Debug.LogWarning("No valid Plex server found.");
         else
         {
-            SessionInfoManager.SaveServerList();
+            Proto_SessionInfoManager.SaveServerList();
             OnServerListBuilt?.Invoke();
         }
 
@@ -273,18 +273,18 @@ public class PlexDataFetcher : MonoBehaviour
         {
             PlaylistInfo playlist = new PlaylistInfo();
 
-            playlist.server = SessionInfoManager.LoadCurrentServer();
+            playlist.server = Proto_SessionInfoManager.LoadCurrentServer();
             playlist.title = pl.Attributes["title"]?.Value;
             playlist.ratingKey = pl.Attributes["ratingKey"]?.Value;
             playlist.uri = pl.Attributes["uri"]?.Value;
             playlist.movieCount = pl.Attributes["leafCount"]?.Value;
 
-            SessionInfoManager.AddPlaylist(playlist);
+            Proto_SessionInfoManager.AddPlaylist(playlist);
             Debug.Log($"[PlexDataFetcher] [GetPlexPlaylist] | Successfully added the following playlist: \n {playlist}");
                 
         }
 
-        SessionInfoManager.SavePlaylistList();
+        Proto_SessionInfoManager.SavePlaylistList();
         OnPlaylistBuilt?.Invoke();
     }
     public void FetchPlaylistItems()
@@ -294,11 +294,11 @@ public class PlexDataFetcher : MonoBehaviour
 
     IEnumerator FetchPlaylistItemsCoroutine()
     {
-        SessionInfoManager.ClearPlaylistInfo();
+        Proto_SessionInfoManager.ClearPlaylistInfo();
 
-        string token = SessionInfoManager.LoadToken();
-        string serverUri = SessionInfoManager.LoadCurrentServer().uri;
-        string plRatingKey = SessionInfoManager.LoadCurrentPlaylist().ratingKey;
+        string token = Proto_SessionInfoManager.LoadToken();
+        string serverUri = Proto_SessionInfoManager.LoadCurrentServer().uri;
+        string plRatingKey = Proto_SessionInfoManager.LoadCurrentPlaylist().ratingKey;
 
         string itemUrl = $"{serverUri}/playlists/{plRatingKey}/items?X-Plex-Token={token}";
 
@@ -348,7 +348,7 @@ public class PlexDataFetcher : MonoBehaviour
 
             var movie = new MovieInfo
             {
-                playlist = SessionInfoManager.LoadCurrentPlaylist(),
+                playlist = Proto_SessionInfoManager.LoadCurrentPlaylist(),
                 ratingKey = ratingKeyAttr?.Value,
                 title = titleAttr?.Value,
                 summary = summaryAttr?.Value,
@@ -369,25 +369,25 @@ public class PlexDataFetcher : MonoBehaviour
                 movie.duration = "N/A";
             }
 
-            SessionInfoManager.AddMovie(movie);
+            Proto_SessionInfoManager.AddMovie(movie);
 
             Debug.Log($"[FlexDataFetcher][FetchPlaylistItemsCoroutine] | Movie Successfully Added to the Movie List. " +
-                $"\n New Count is {SessionInfoManager.GetPlaylistInfo().Count}." +
+                $"\n New Count is {Proto_SessionInfoManager.GetPlaylistInfo().Count}." +
                 $"\n Added Movie: {movie.title}" +
                 $"\n {movie}");
         }
 
-        yield return StartCoroutine(ProcessAllAssetsCoroutine(SessionInfoManager.GetPlaylistInfo()));
+        yield return StartCoroutine(ProcessAllAssetsCoroutine(Proto_SessionInfoManager.GetPlaylistInfo()));
 
-        OnPlaylistItemsFetched?.Invoke(SessionInfoManager.GetPlaylistInfo());
-        SessionInfoManager.SavePlaylistMovieList();
+        OnPlaylistItemsFetched?.Invoke(Proto_SessionInfoManager.GetPlaylistInfo());
+        Proto_SessionInfoManager.SavePlaylistMovieList();
     }
 
     public IEnumerator DownloadPoster(MovieInfo movie)
     {
         if (string.IsNullOrEmpty(movie.thumbUrl)) yield break;
 
-        string path = SessionInfoManager.GetPosterPath(movie);
+        string path = Proto_SessionInfoManager.GetPosterPath(movie);
 
         //Skip if already cached
         if (File.Exists(path))
@@ -411,7 +411,7 @@ public class PlexDataFetcher : MonoBehaviour
             movie.posterTexture = tex;
 
             //Let SessionInfoManager handle saving
-            SessionInfoManager.SavePoster(movie, tex);
+            Proto_SessionInfoManager.SavePoster(movie, tex);
         }
         else
         {
@@ -421,6 +421,11 @@ public class PlexDataFetcher : MonoBehaviour
 
     public IEnumerator AssignTrailerFromTMDB(MovieInfo movie)
     {
+        if (!string.IsNullOrEmpty(movie.trailerUrl))
+        {
+            Debug.Log("[PlexDataFetcher][AssignTrailerFromTMDB] Trailer URL already assigned.");
+            yield break;
+        }
         bool finished = false;
 
         //kick off async TMDB fetch

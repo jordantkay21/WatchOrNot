@@ -4,79 +4,9 @@ using System.IO;
 using System.Text;
 using UnityEngine;
 
-[Serializable]
-public class ServerInfo
-{
-    public string name;
-    public string product;
-    public string provides;
-    public string publicAddress;
-    public string port;
-    public string uri;
 
-    public override string ToString()
-    {
-        return
-            $"- Name: {name} " +
-            $"\n - Product: {product} " +
-            $"\n - Provides: {provides} " +
-            $"\n - IP: {publicAddress} " +
-            $"\n - Port: {port} " +
-            $"\n - URI: {uri}";
-    }
-}
 
-[Serializable]
-public class PlaylistInfo
-{
-    public ServerInfo server;
-    public string title;
-    public string ratingKey;
-    public string uri;
-    public string movieCount = "leafCount";
-
-    public override string ToString()
-    {
-        return
-            $" <color=red>- Server: {server.name} </color>" +
-            $"\n - Title: {title} " +
-            $"\n - RatingKey {ratingKey} " +
-            $"\n - URI: {uri} " +
-            $"\n - movieCount = {movieCount}";
-            
-    }
-}
-
-[Serializable]
-public class MovieInfo
-{
-    public PlaylistInfo playlist;
-    public string title;
-    public int year;
-    public string ratingKey;
-    public string thumbUrl;
-    public Texture2D posterTexture;
-
-    public string summary;
-    public string trailerUrl;
-    public string genres;
-    public string duration;
-    public string primaryExtraKey;
-
-    public override string ToString()
-    {
-        return
-            $"<color=red>- Playlist: {playlist.title} </color>" +
-            $"\n - Title: {title}" +
-            $"\n - Year: {year}" +
-            $"\n - Rating Key: {ratingKey}" +
-            $"\n - Summary: {summary} " +
-            $"\n - Genres: {genres} " +
-            $"\n - Duration: {duration} ";
-    }
-}
-
-public class SessionInfoManager 
+public class Proto_SessionInfoManager 
 {
     private const string NameKey = "server_name";
     private const string TokenKey = "server_token";
