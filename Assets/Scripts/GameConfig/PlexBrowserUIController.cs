@@ -8,6 +8,7 @@ public class PlexBrowserUIController : MonoBehaviour
 {
     [Header("Panels & UI Elements")]
     public GameObject browserPanel;
+    public GameObject itemDisplayPanel;
 
     [Header("Server UI")]
     public TMP_Dropdown serverDropdown;
@@ -29,10 +30,12 @@ public class PlexBrowserUIController : MonoBehaviour
 
     private List<ServerInfo> servers = new();
     private List<PlaylistInfo> playlists = new();
+    private List<MovieInfo> movies = new List<MovieInfo>();
 
     private void Start()
     {
         PlexNetworkingManager.OnTokenValidated += OnTokenValidated;
+        PlexNetworkingManager.OnStatusUpdate += UpdateStatus;
         PlexNetworkingManager.OnErrorOccurred += Debug.LogWarning;
 
         playButton.onClick.AddListener(OnPlayClicked);
@@ -43,6 +46,8 @@ public class PlexBrowserUIController : MonoBehaviour
         serverDropdown.onValueChanged.AddListener(async index => await OnServerSelected(index));
 
         browserPanel.SetActive(false);
+        itemDisplayPanel.gameObject.SetActive(false);
+        playButton.gameObject.SetActive(false);
 
         //Validate token and attempt preload
         _ = PlexNetworkingManager.ValidateStoredTokenAsync();
@@ -120,7 +125,7 @@ public class PlexBrowserUIController : MonoBehaviour
         SessionInfoManager.SetCurrentPlaylist(selectedPlaylist);
 
         UpdateStatus("Fetching Movies...");
-        var movies = await PlexNetworkingManager.FetchPlaylistItemsAsync(selectedPlaylist);
+        movies = await PlexNetworkingManager.FetchPlaylistItemsAsync(selectedPlaylist);
         
         UpdateStatus($"Loaded {movies.Count} Movies");
         DisplayPlaylist(movies);
@@ -134,15 +139,24 @@ public class PlexBrowserUIController : MonoBehaviour
             return;
         }
 
-        var selected = SessionInfoManager.GetCurrentPlaylist();
-        var movies = SessionInfoManager.LoadMoviesFromCache(selected.title, selected.movieCount);
-
         if(movies.Count == 0)
         {
             Debug.Log("[PlexBrowserUIController][OnPlayClicked] No cache found. Should fetch online.");
         }
 
         Debug.Log("[PlexBrowserUIController][OnPlayClicked] LET THE GAMES BEGIN!");
+
+        // Step 1: Randomly select 12 movies
+        GameManager.Instance.SelectRandomMovies(movies);
+
+        //Step 2: Move to Ranking Phase
+        GameManager.Instance.StartRanking();
+
+        //Step 3: Hide the current browser panel
+        browserPanel.SetActive(false);
+        itemDisplayPanel.SetActive(false);
+        playButton.gameObject.SetActive(false);
+
     }
 
     private void DisplayPlaylist(List<MovieInfo> movies)
@@ -165,6 +179,8 @@ public class PlexBrowserUIController : MonoBehaviour
                 poster.texture = movie.posterTexture;
         }
 
+        itemDisplayPanel.gameObject.SetActive(true);
+        playButton.gameObject.SetActive(true);
         Debug.Log($"[PlexBrowserUIController][DisplayPlaylist] Displayed {movies.Count} movies");
     }
 

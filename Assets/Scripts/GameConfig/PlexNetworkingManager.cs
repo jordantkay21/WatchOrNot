@@ -11,6 +11,7 @@ public static class PlexNetworkingManager
 {
     public static event Action<string> OnCodeReceived;
     public static event Action OnTokenValidated;
+    public static event Action<string> OnStatusUpdate;
     public static event Action<string> OnErrorOccurred;
 
     private static string pinID;
@@ -269,6 +270,9 @@ public static class PlexNetworkingManager
             doc.LoadXml(xml);
             var videos = doc.SelectNodes("//Video");
 
+            int completedCount = 0;
+            int totalCount = videos.Count;
+
             foreach (XmlNode video in videos)
             {
                 var movie = new MovieInfo
@@ -302,32 +306,42 @@ public static class PlexNetworkingManager
                     movie.duration = "N/A";
                 }
 
-                //Start downloading poster and trailer in parallel
-                Task<Texture2D> posterTask = DownloadPosterTextureAsync(movie);
-                Task<string> trailerTask = TMDBNetworkingManager.FetchTrailerUrlAsync(movie.title, movie.year);
-
-                await Task.WhenAll(posterTask, trailerTask);
-
-                movie.posterTexture = posterTask.Result;
-                movie.trailerUrl = trailerTask.Result;
-
                 movies.Add(movie);
+
+                // Download poster and trailer for this movie
+                await DownloadPosterAndTrailerAsync(movie);
+
+                //Update Loading progress after each movie
+                completedCount++;
+                float progress = (float)completedCount / totalCount;
+                MainThreadDispatcher.Enqueue(() => OnStatusUpdate?.Invoke($"Loading {completedCount}/{totalCount} movies | {movie.title} | ({progress:P0})"));
 
                 Debug.Log($"[PlexNetworkingManager][FetchPlaylistItemsAsync] Successfully added the following movie: \n {movie}");
             }
 
             SessionInfoManager.SetMovies(movies);
-            return movies;
         }
         catch (Exception ex)
         {
             OnErrorOccurred?.Invoke($"[PlexNetworkingManager][FetchPlaylistItemsAsync] Error occured fetching playlist items: {ex.Message}");
-            return new List<MovieInfo>();
         }
+
+            return movies;
     }
     #endregion
 
     #region Movie Asset Logic
+
+    private static async Task DownloadPosterAndTrailerAsync(MovieInfo movie)
+    {
+        Task<Texture2D> posterTask = DownloadPosterTextureAsync(movie);
+        Task<string> trailerTask = TMDBNetworkingManager.FetchTrailerUrlAsync(movie.title, movie.year);
+
+        await Task.WhenAll(posterTask, trailerTask);
+
+        movie.posterTexture = posterTask.Result;
+        movie.trailerUrl = trailerTask.Result;
+    }
 
     public static async Task<Texture2D> DownloadPosterTextureAsync(MovieInfo movie)
     {
