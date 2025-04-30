@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using System;
 
 [System.Serializable]
 public enum GamePhase
@@ -7,13 +8,17 @@ public enum GamePhase
     GameConfig,
     MovieSelection,
     Ranking,
+    FinalAdjustments,
     RevealGameplay
 }
 
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
-    public static event System.Action OnRankingPhaseStarted;
+
+    public static event Action OnRankingPhaseStarted;
+    public static event Action OnFinalAdjustmentPhaseStarted;
+
 
     public GamePhase CurrentPhase = GamePhase.GameConfig;
 
@@ -56,7 +61,7 @@ public class GameManager : MonoBehaviour
         for (int i = 0; i <shuffled.Count; i++)
         {
             var temp = shuffled[i];
-            int randomIndex = Random.Range(i, shuffled.Count);
+            int randomIndex = UnityEngine.Random.Range(i, shuffled.Count);
             shuffled[i] = shuffled[randomIndex];
             shuffled[randomIndex] = temp;
         }
@@ -114,5 +119,18 @@ public class GameManager : MonoBehaviour
 
         SetPhase(GamePhase.RevealGameplay);
         Debug.Log($"[GameManager][CompleteRanking] Ranking complete! Ready for reveal stage.");
+    }
+
+    public void StartFinalAdjustments()
+    {
+        if (!IsRankingComplete())
+        {
+            Debug.LogWarning("[GameManager][StartFinalAdjustments] Cannot begin Final Adjustments - ranking incomplete");
+            return;
+        }
+
+        SetPhase(GamePhase.FinalAdjustments);
+        Debug.Log("[GameManager][StartFinalAdjustments] Final Adjustments phase started!");
+        OnFinalAdjustmentPhaseStarted?.Invoke();
     }
 }
