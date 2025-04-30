@@ -18,6 +18,7 @@ public class GameManager : MonoBehaviour
 
     public static event Action OnRankingPhaseStarted;
     public static event Action OnFinalAdjustmentPhaseStarted;
+    public static event Action OnRevealStageStarted;
 
 
     public GamePhase CurrentPhase = GamePhase.GameConfig;
@@ -132,5 +133,12 @@ public class GameManager : MonoBehaviour
         SetPhase(GamePhase.FinalAdjustments);
         Debug.Log("[GameManager][StartFinalAdjustments] Final Adjustments phase started!");
         OnFinalAdjustmentPhaseStarted?.Invoke();
+    }
+
+    public void StartRevealStage()
+    {
+        SetPhase(GamePhase.RevealGameplay);
+        Debug.Log("[GameManager][StartRevealStage] Reveal Stage started!");
+        OnRevealStageStarted?.Invoke();
     }
 }

@@ -313,7 +313,16 @@ public class RankingStageManager : MonoBehaviour
         finalizeRankButton.gameObject.SetActive(false);
         blindSwapButton.gameObject.SetActive(false);
 
+        ConvertRankButtonsToTitles();
+        foreach (Button infoButton in infoButtons)
+            infoButton.gameObject.SetActive(false);
+        
+        instructionPanel.SetActive(false);
+        movieInfoPanel.SetActive(false);
+
         messageText.text = $"Final Adjustments Compelete. Reveal Phase COMING SOON!";
+
+        GameManager.Instance.StartRevealStage();
     }
     private void OnWatchTrailerClicked()
     {
@@ -336,5 +345,24 @@ public class RankingStageManager : MonoBehaviour
             : null;
 
         rankButtonTexts[rank - 1].text = movie != null ? movie.title : "Unassigned";
+    }
+
+    private void ConvertRankButtonsToTitles()
+    {
+        for (int i = 0; i < rankButtonTexts.Count; i++)
+        {
+            int rank = i + 1;
+
+            if(GameManager.Instance.FinalRankings.TryGetValue(rank, out MovieInfo movie))
+            {
+                rankButtonTexts[i].text = movie.title;
+            }
+
+            rankButtons[i].interactable = false;
+            var image = rankButtons[i].GetComponent<Image>();
+            if (image != null) image.enabled = false;
+        }
+
+        Debug.Log($"[RankingStageManager][ConvertRankButtonsToTitles] Rank buttons converted to movie titles");
     }
 }
