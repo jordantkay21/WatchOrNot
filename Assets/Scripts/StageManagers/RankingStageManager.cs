@@ -25,15 +25,6 @@ public class RankingStageManager : MonoBehaviour
     public List<TMP_Text> rankButtonTexts;
     public List<Button> infoButtons;
 
-    [Header("Movie Info Panel")]
-    public TMP_Text titleText;
-    public TMP_Text yearText;
-    public RawImage posterImage;
-    public TMP_Text summaryText;
-    public TMP_Text genreText;
-    public TMP_Text durationText;
-    public Button watchTrailerButton;
-
     [Header("Other")]
     public TMP_Text messageText;
     public Button blindSwapButton;
@@ -50,7 +41,6 @@ public class RankingStageManager : MonoBehaviour
         finalizeRankButton.gameObject.SetActive(false);
         blindSwapButton.gameObject.SetActive(false);
 
-        watchTrailerButton.onClick.AddListener(OnWatchTrailerClicked);
         blindSwapButton.onClick.AddListener(OnBlindSwapClicked);
         finalizeRankButton.onClick.AddListener(FinishFinalAdjustments);
     }
@@ -59,6 +49,7 @@ public class RankingStageManager : MonoBehaviour
     {
         GameManager.OnRankingPhaseStarted += BeginRanking;
         GameManager.OnFinalAdjustmentPhaseStarted += StartFinalAdjustments;
+        GameManager.OnMovieRevealed += CrossOutRankForMovie;
     }
 
     private void OnDisable()
@@ -110,16 +101,9 @@ public class RankingStageManager : MonoBehaviour
 
         var movie = GameManager.Instance.FinalRankings[rank];
 
-        titleText.text = movie.title;
-        yearText.text = movie.year.ToString();
-        posterImage.texture = movie.posterTexture;
-        summaryText.text = movie.summary;
-        genreText.text = movie.genres;
-        durationText.text = movie.duration;
 
-        watchTrailerButton.interactable = !string.IsNullOrEmpty(movie.trailerUrl);
 
-        movieInfoPanel.SetActive(true);
+        MovieInfoUIController.Instance.Show(movie);
         instructionPanel.SetActive(false);
 
         messageText.text = $"Displaying info for rank {rank}: {movie.title}";
@@ -129,14 +113,7 @@ public class RankingStageManager : MonoBehaviour
     private void ShowCurrentMovie()
     {
         var movie = moviesToRank[currentMovieIndex];
-        titleText.text = movie.title;
-        yearText.text = movie.year.ToString();
-        posterImage.texture = movie.posterTexture;
-        summaryText.text = movie.summary;
-        genreText.text = movie.genres;
-        durationText.text = movie.duration;
-
-        watchTrailerButton.interactable = !string.IsNullOrEmpty(movie.trailerUrl);
+        MovieInfoUIController.Instance.Show(movie);
 
         messageText.text = $"Ranking {currentMovieIndex + 1} of {moviesToRank.Count}";
     }
@@ -324,12 +301,7 @@ public class RankingStageManager : MonoBehaviour
 
         GameManager.Instance.StartRevealStage();
     }
-    private void OnWatchTrailerClicked()
-    {
-        var movie = moviesToRank[currentMovieIndex];
-        if (!string.IsNullOrEmpty(movie.trailerUrl)) 
-            Application.OpenURL(movie.trailerUrl);
-    }
+
 
     private void UpdateRemainingAdjustmentsUI()
     {
@@ -364,5 +336,18 @@ public class RankingStageManager : MonoBehaviour
         }
 
         Debug.Log($"[RankingStageManager][ConvertRankButtonsToTitles] Rank buttons converted to movie titles");
+    }
+
+    private void CrossOutRankForMovie(MovieInfo movie)
+    {
+        foreach (var kvp in GameManager.Instance.FinalRankings)
+        {
+            if (kvp.Value == movie)
+            {
+                var text = rankButtonTexts[kvp.Key - 1];
+                text.text = $"<color=red><s>{movie.title}</s></color>"; // Strike-through using TMP tag
+                return;
+            }
+        }
     }
 }

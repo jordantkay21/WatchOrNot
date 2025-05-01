@@ -19,6 +19,7 @@ public class GameManager : MonoBehaviour
     public static event Action OnRankingPhaseStarted;
     public static event Action OnFinalAdjustmentPhaseStarted;
     public static event Action OnRevealStageStarted;
+    public static Action<MovieInfo> OnMovieRevealed;
 
 
     public GamePhase CurrentPhase = GamePhase.GameConfig;

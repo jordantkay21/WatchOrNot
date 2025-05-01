@@ -174,12 +174,51 @@ public static class PlexNetworkingManager
                     publicAddress = device.Attributes["publicAddress"]?.Value
                 };
 
-                var connection = device.SelectSingleNode("Connection");
-                if (connection != null)
+                var connectionNodes = device.SelectNodes("Connection");
+                string chosenUri = null;
+                string chosenPort = null;
+
+                //Prefer external/public (Remote) connections
+                foreach (XmlNode conn in connectionNodes)
                 {
-                    server.uri = connection.Attributes["uri"]?.Value;
-                    server.port = connection.Attributes["port"]?.Value;
+                    var address = conn.Attributes["address"]?.Value;
+                    var local = conn.Attributes["local"]?.Value;
+                    var uri = conn.Attributes["uri"]?.Value;
+                    var port = conn.Attributes["port"]?.Value;
+
+                    // If local is "0", it's a remote/external connection
+                    if (local == "0")
+                    {
+                        chosenUri = uri;
+                        chosenPort = port;
+
+                        Debug.Log($"[PlexNetworkingManager][FetchServersAsync] Successfully grabbed a remote connection from {server.name} " +
+                            $"\n address: {address} " +
+                            $"\n local: {local} " +
+                            $"\n uri {uri} " +
+                            $"\n port {port}");
+
+                        break;
+                    }
+
+                    //fallback: still grab something
+                    if (chosenUri == null)
+                    {
+                        chosenUri = uri;
+                        chosenPort = port;
+
+                        Debug.Log($"[PlexNetworkingManager][FetchServersAsync] Successfully grabbed a default connection from {server.name} " +
+                            $"\n address: {address} " +
+                            $"\n local: {local} " +
+                            $"\n uri {uri} " +
+                            $"\n port {port}");
+                    }
+
                 }
+
+                server.uri = chosenUri;
+                server.port = chosenPort;
+                
 
                 servers.Add(server);
 
