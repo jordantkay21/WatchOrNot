@@ -1,3 +1,4 @@
+using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -18,7 +19,14 @@ public class MovieInfoUIController : MonoBehaviour
     public TMP_Text durationText;
     public Button watchTrailerButton;
 
+    [Header("Movie Offer Components")]
+    public GameObject offerButtonContainer;
+    public Button acceptButton;
+    public Button declineButton;
+
     private MovieInfo currentMovie;
+    private Action onConfirm;
+    private Action onDecline;
 
     private void Awake()
     {
@@ -30,13 +38,17 @@ public class MovieInfoUIController : MonoBehaviour
 
         Instance = this;
         DontDestroyOnLoad(this.gameObject);
+
+        offerButtonContainer.SetActive(false);
+        acceptButton.onClick.AddListener(HandleAccept);
+        declineButton.onClick.AddListener(HandleDecline);
     }
 
     private void Start()
     {
         watchTrailerButton.onClick.AddListener(OnWatchTrailerClicked);
     }
-    public void Show(MovieInfo movie)
+    public void Show(MovieInfo movie, bool isOffer = false, Action onAccept = null, Action onDecline = null)
     {
         movieInfoPanel.SetActive(true);
 
@@ -50,6 +62,10 @@ public class MovieInfoUIController : MonoBehaviour
         durationText.text = movie.duration;
 
         watchTrailerButton.interactable = !string.IsNullOrEmpty(movie.trailerUrl);
+
+        if (isOffer)
+            MovieOffer(onAccept, onDecline);
+        
     }
 
     private void OnWatchTrailerClicked()
@@ -60,6 +76,28 @@ public class MovieInfoUIController : MonoBehaviour
 
     public void Hide()
     {
+        movieInfoPanel.SetActive(false);
+    }
+
+    private void MovieOffer(Action onAcceptCallback, Action onDeclineCallback)
+    {
+        offerButtonContainer.SetActive(true);
+
+        onConfirm = onAcceptCallback;
+        onDecline = onDeclineCallback;
+    }
+
+    private void HandleAccept()
+    {
+        onConfirm?.Invoke();
+        offerButtonContainer.SetActive(false);
+        movieInfoPanel.SetActive(false);
+    }
+
+    private void HandleDecline()
+    {
+        onDecline?.Invoke();
+        offerButtonContainer.SetActive(false);
         movieInfoPanel.SetActive(false);
     }
 }

@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -135,6 +136,13 @@ public class RevealStageManager : MonoBehaviour
 
             Debug.Log($"[RevealStageManager][StartRevealRound] Player has revealed case {caseNumber} and has revealed movie {caseAssignments[caseNumber].title}");
 
+            if(revealsRemainingThisRound <= 0)
+            {
+                Debug.Log($"[RevealStageManager][OnCaseSelected] Reveal round completed. Preparing offer...");
+
+                StartCoroutine(ShowOfferAfterDelay(2f));
+            }
+
         }
 
     }
@@ -167,5 +175,40 @@ public class RevealStageManager : MonoBehaviour
         caseImages[caseNumber - 1].gameObject.SetActive(true);
     }
 
+    private IEnumerator ShowOfferAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        CasePanel.SetActive(false);
+        ShowOffer();
+    }
+    private void ShowOffer()
+    {
+        List<MovieInfo> movies = SessionInfoManager.GetMovies();
 
+        currentOffer = movies[UnityEngine.Random.Range(0,movies.Count)];
+
+        Debug.Log($"[RevealStageManager][ShowOffer] Player has been offered: {currentOffer.title}");
+
+        MovieInfoUIController.Instance.Show(currentOffer, true, OnAcceptOffer, OnDeclineOffer);
+    }
+
+    private void OnAcceptOffer()
+    {
+        Debug.Log($"[RevealStageManager][OnAcceptOffer] Player Accepted the offer: {currentOffer.title}");
+
+        EndGameWithMovie(currentOffer);
+    }
+
+    private void OnDeclineOffer()
+    {
+        Debug.Log($"[RevealStageManager][OnDeclineOffer] Player Declined the offer: {currentOffer.title}");
+
+        CasePanel.SetActive(true);
+        StartRevealRound(currentRevealRound + 1);
+    }
+
+    private void EndGameWithMovie(MovieInfo movie)
+    {
+        Debug.Log($"[EndGame] Game over. Player selected: {movie.title}");
+    }
 }

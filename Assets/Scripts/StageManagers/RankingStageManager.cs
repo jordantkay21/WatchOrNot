@@ -50,6 +50,8 @@ public class RankingStageManager : MonoBehaviour
         GameManager.OnRankingPhaseStarted += BeginRanking;
         GameManager.OnFinalAdjustmentPhaseStarted += StartFinalAdjustments;
         GameManager.OnMovieRevealed += CrossOutRankForMovie;
+        GameManager.OnMovieOffer += Hide;
+        GameManager.OnMovieOfferDeclined += Show;
     }
 
     private void OnDisable()
@@ -349,5 +351,15 @@ public class RankingStageManager : MonoBehaviour
                 return;
             }
         }
+    }
+
+    private void Hide()
+    {
+        rankingStagePanel.SetActive(false);
+    }
+
+    private void Show()
+    {
+        rankingStagePanel.SetActive(true);
     }
 }

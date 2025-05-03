@@ -90,6 +90,7 @@ public class SessionInfoManager
     private static ServerInfo currentServer;
     private static List<MovieInfo> currentMovies = new List<MovieInfo>();
 
+
     #region Token Management
 
     public static bool HasToken() => PlayerPrefs.HasKey(TokenKey);
@@ -168,24 +169,12 @@ public class SessionInfoManager
 
     public static void SetMovies(List<MovieInfo> movies)
     {
+        currentMovies.Clear();
+
         currentMovies = movies;
-
-        if(currentPlaylist != null)
-        {
-            string file = GetPlaylistMovieFile(currentPlaylist.title, currentMovies.Count.ToString());
-            SaveJson(file, currentMovies);
-        }
-        else
-        {
-            Debug.LogWarning($"[SessionInfoManager][SetMovies()] Current playlist not set. | Cannot save movie cache.");
-        }
     }
 
-    public static List<MovieInfo> LoadMoviesFromCache(string title, string movieCount)
-    {
-        string file = GetPlaylistMovieFile(title, movieCount);
-        return LoadJson<List<MovieInfo>>(file) ?? new();
-    }
+
     #endregion
 
     #region Poster & Trailer Paths
