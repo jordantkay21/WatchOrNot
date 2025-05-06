@@ -29,6 +29,9 @@ public class RevealStageManager : MonoBehaviour
     private int currentRevealRound = 1;
     private int revealsRemainingThisRound = 4;
 
+    private bool isInSwitchPhase = false;
+    private int? remainingCaseNumber = null;
+
     private void Start()
     {
         CasePanel.SetActive(false);
@@ -123,7 +126,8 @@ public class RevealStageManager : MonoBehaviour
 
             StartRevealRound(1);
         }
-        else
+
+        if (!isInSwitchPhase)
         {
             if (revealsRemainingThisRound <= 0 || revealedCaseNumbers.Contains(caseNumber) || caseNumber == playerChosenCaseNumber)
                 return;
@@ -134,17 +138,74 @@ public class RevealStageManager : MonoBehaviour
             revealedCaseNumbers.Add(caseNumber);
             revealsRemainingThisRound--;
 
-            Debug.Log($"[RevealStageManager][StartRevealRound] Player has revealed case {caseNumber} and has revealed movie {caseAssignments[caseNumber].title}");
+            Debug.Log($"[RevealStageManager][OnCaseSelected] Player has revealed case {caseNumber} and has revealed movie {caseAssignments[caseNumber].title}");
 
-            if(revealsRemainingThisRound <= 0)
+            int totalCases = caseAssignments.Count;
+            int revealedCount = revealedCaseNumbers.Count;
+
+            if (revealedCount == totalCases - 2) //Only 2 unrevealed: player + 1
+            {
+                isInSwitchPhase = true;
+                remainingCaseNumber = GetRemainingCaseNumber();
+
+                Debug.Log($"[RevealStageManager][OnCaseSelected] Entering switch phase. Remaining case: #{remainingCaseNumber}");
+
+                StartCoroutine(ShowSwitchPromptAfterDelay(1.5f));
+                return;
+            }
+
+            if (revealsRemainingThisRound <= 0)
             {
                 Debug.Log($"[RevealStageManager][OnCaseSelected] Reveal round completed. Preparing offer...");
 
                 StartCoroutine(ShowOfferAfterDelay(2f));
             }
+        }
+    }
 
+    private int GetRemainingCaseNumber()
+    {
+        foreach (var caseNum in caseAssignments.Keys)
+        {
+            if (!revealedCaseNumbers.Contains(caseNum) && caseNum != playerChosenCaseNumber)
+                return caseNum;
         }
 
+        return -1; // Should never happen
+    }
+
+    private IEnumerator ShowSwitchPromptAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        
+
+        string chosenTitle = caseAssignments[playerChosenCaseNumber.Value].title;
+        string otherTitle = caseAssignments[remainingCaseNumber.Value].title;
+
+        UIManager.Instance.confirmationPopup.Show(
+            $"Would you like to switch your case?\n\nCurrent Case: \"{playerChosenCaseNumber}\"\nOther Case: \"{remainingCaseNumber}\"",
+            OnSwitchConfirmed,
+            OnSwitchDeclined
+        );
+    }
+
+    private void OnSwitchConfirmed()
+    {
+        Debug.Log("[RevealStageManager] Player chose to switch cases.");
+
+        int original = playerChosenCaseNumber.Value;
+        playerChosenCaseNumber = remainingCaseNumber;
+
+        remainingCaseNumber = original;
+
+        RevealFinalMovie(caseAssignments[playerChosenCaseNumber.Value]);
+    }
+
+    private void OnSwitchDeclined()
+    {
+        Debug.Log("[RevealStageManager] Player kept original case.");
+
+        RevealFinalMovie(caseAssignments[playerChosenCaseNumber.Value]);
     }
 
     private void StartRevealRound(int roundNumber)
@@ -189,14 +250,14 @@ public class RevealStageManager : MonoBehaviour
 
         Debug.Log($"[RevealStageManager][ShowOffer] Player has been offered: {currentOffer.title}");
 
-        MovieInfoUIController.Instance.Show(currentOffer, true, OnAcceptOffer, OnDeclineOffer);
+        MovieInfoUIController.Instance.Show(currentOffer, DisplayType.Offer, OnAcceptOffer, OnDeclineOffer);
     }
 
     private void OnAcceptOffer()
     {
         Debug.Log($"[RevealStageManager][OnAcceptOffer] Player Accepted the offer: {currentOffer.title}");
 
-        EndGameWithMovie(currentOffer);
+        RevealFinalMovie(currentOffer);
     }
 
     private void OnDeclineOffer()
@@ -207,8 +268,10 @@ public class RevealStageManager : MonoBehaviour
         StartRevealRound(currentRevealRound + 1);
     }
 
-    private void EndGameWithMovie(MovieInfo movie)
+    private void RevealFinalMovie(MovieInfo movie)
     {
+        CasePanel.SetActive(false);
+        MovieInfoUIController.Instance.Show(movie, DisplayType.Final);
         Debug.Log($"[EndGame] Game over. Player selected: {movie.title}");
     }
 }

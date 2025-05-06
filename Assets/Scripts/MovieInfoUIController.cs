@@ -3,6 +3,13 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
+public enum DisplayType
+{
+    Ranking,
+    Offer,
+    Final
+}
+
 public class MovieInfoUIController : MonoBehaviour
 {
     public static MovieInfoUIController Instance;
@@ -48,9 +55,10 @@ public class MovieInfoUIController : MonoBehaviour
     {
         watchTrailerButton.onClick.AddListener(OnWatchTrailerClicked);
     }
-    public void Show(MovieInfo movie, bool isOffer = false, Action onAccept = null, Action onDecline = null)
+    public void Show(MovieInfo movie, DisplayType type = DisplayType.Ranking, Action onAccept = null, Action onDecline = null)
     {
         movieInfoPanel.SetActive(true);
+        Debug.Log($"[MovieInfoUIController][Show] Movie Info Panel Active for {type} displaying {movie.title}.");
 
         currentMovie = movie;
 
@@ -63,8 +71,20 @@ public class MovieInfoUIController : MonoBehaviour
 
         watchTrailerButton.interactable = !string.IsNullOrEmpty(movie.trailerUrl);
 
-        if (isOffer)
-            MovieOffer(onAccept, onDecline);
+        switch (type)
+        {
+            case DisplayType.Ranking:
+                break;
+            case DisplayType.Offer:
+                MovieOffer(onAccept, onDecline);
+                break;
+            case DisplayType.Final:
+                offerButtonContainer.SetActive(false);
+                watchTrailerButton.gameObject.SetActive(false);
+                break;
+            default:
+                break;
+        }
         
     }
 
@@ -76,11 +96,13 @@ public class MovieInfoUIController : MonoBehaviour
 
     public void Hide()
     {
+        Debug.Log($"[MovieInfoUIController][Hide] triggered.");
         movieInfoPanel.SetActive(false);
     }
 
     private void MovieOffer(Action onAcceptCallback, Action onDeclineCallback)
     {
+        Debug.Log($"[MovieInfoUIController][MovieOffer] triggered.");
         offerButtonContainer.SetActive(true);
 
         onConfirm = onAcceptCallback;
@@ -89,15 +111,18 @@ public class MovieInfoUIController : MonoBehaviour
 
     private void HandleAccept()
     {
+        Debug.Log($"[MovieInfoUIController][HandleAccept] triggered.");
         onConfirm?.Invoke();
-        offerButtonContainer.SetActive(false);
-        movieInfoPanel.SetActive(false);
+        //offerButtonContainer.SetActive(false);
+        //movieInfoPanel.SetActive(false);
     }
 
     private void HandleDecline()
     {
+        Debug.Log($"[MovieInfoUIController][HandleDecline] triggered.");
         onDecline?.Invoke();
         offerButtonContainer.SetActive(false);
         movieInfoPanel.SetActive(false);
     }
+
 }
