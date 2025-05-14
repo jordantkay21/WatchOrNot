@@ -9,7 +9,7 @@ EditorBuildSettings:
     path: Assets/Scenes/WatchOrNot.unity
     guid: 99c9720ab356a0642a771bea13969a05
   - enabled: 1
-    path: Assets/Scenes/GameConfig.unity
+    path: Assets/Scenes/Prototype.unity
     guid: 2aaff5a61a3095c4da023d6c2392cd0b
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
