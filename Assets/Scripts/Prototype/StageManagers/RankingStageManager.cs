@@ -138,7 +138,7 @@ namespace KayosMedia.WatchOrNot.Prototype
 
             var movie = moviesToRank[currentMovieIndex];
 
-            //Assign the seelcted movie to the rank inside GameManager
+            //Assign the seelcted movie to the rank inside SessionManager
             GameManager.Instance.AssignRank(rank, movie);
 
             //Update button text and disable

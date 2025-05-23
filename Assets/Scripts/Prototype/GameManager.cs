@@ -49,7 +49,7 @@ namespace KayosMedia.WatchOrNot.Prototype
         public void SetPhase(GamePhase newPhase)
         {
             CurrentPhase = newPhase;
-            Debug.Log($"[GameManager][SetPhase] Phase changed to {newPhase}");
+            Debug.Log($"[SessionManager][SetPhase] Phase changed to {newPhase}");
         }
 
         public void SelectRandomMovies(List<MovieInfo> sourceMovies, int count = 12)
@@ -57,7 +57,7 @@ namespace KayosMedia.WatchOrNot.Prototype
             SelectedMovies.Clear();
             FinalRankings.Clear();
 
-            Debug.Log($"[GameManager][SelectRandomMovies] Recieved {sourceMovies.Count} source movies");
+            Debug.Log($"[SessionManager][SelectRandomMovies] Recieved {sourceMovies.Count} source movies");
 
             var shuffled = new List<MovieInfo>(sourceMovies);
 
@@ -72,27 +72,27 @@ namespace KayosMedia.WatchOrNot.Prototype
                 shuffled[randomIndex] = temp;
             }
 
-            Debug.Log($"[GameManager][SelectRandomMovies] Shuffled {shuffled.Count} source movies");
+            Debug.Log($"[SessionManager][SelectRandomMovies] Shuffled {shuffled.Count} source movies");
 
             for (int i = 0; i < Mathf.Min(count, shuffled.Count); i++)
             {
                 SelectedMovies.Add(shuffled[i]);
-                Debug.Log($"[GameManager][SelectRandomMovies] {shuffled[i].title} has been randomly selected for this round!");
+                Debug.Log($"[SessionManager][SelectRandomMovies] {shuffled[i].title} has been randomly selected for this round!");
             }
 
-            Debug.Log($"[GameManager][SelectRandomMovies] Selected {SelectedMovies.Count} random movies");
+            Debug.Log($"[SessionManager][SelectRandomMovies] Selected {SelectedMovies.Count} random movies");
         }
 
         public void StartRanking()
         {
             if (SelectedMovies.Count != 12)
             {
-                Debug.LogError($"[GameManager][StartRanking] Cannot start ranking - wrong number of selected movies!");
+                Debug.LogError($"[SessionManager][StartRanking] Cannot start ranking - wrong number of selected movies!");
                 return;
             }
 
             SetPhase(GamePhase.Ranking);
-            Debug.Log($"[GameManager][StartRanking] Ranking Phase Started!");
+            Debug.Log($"[SessionManager][StartRanking] Ranking Phase Started!");
 
             //Fire Event
             OnRankingPhaseStarted?.Invoke();
@@ -102,12 +102,12 @@ namespace KayosMedia.WatchOrNot.Prototype
         {
             if (FinalRankings.ContainsKey(rank))
             {
-                Debug.LogWarning($"[GameManager][AssignRank] Rank {rank} already assigned!");
+                Debug.LogWarning($"[SessionManager][AssignRank] Rank {rank} already assigned!");
                 return;
             }
 
             FinalRankings[rank] = movie;
-            Debug.Log($"[GameManager][AssignRank] Movie '{movie.title}' assigned to Rank {rank}");
+            Debug.Log($"[SessionManager][AssignRank] Movie '{movie.title}' assigned to Rank {rank}");
         }
 
         public bool IsRankingComplete()
@@ -119,31 +119,31 @@ namespace KayosMedia.WatchOrNot.Prototype
         {
             if (!IsRankingComplete())
             {
-                Debug.LogWarning($"[GameManager][CompleteRanking] Cannot complete ranking - not all ranks assigned!");
+                Debug.LogWarning($"[SessionManager][CompleteRanking] Cannot complete ranking - not all ranks assigned!");
                 return;
             }
 
             SetPhase(GamePhase.RevealGameplay);
-            Debug.Log($"[GameManager][CompleteRanking] Ranking complete! Ready for reveal stage.");
+            Debug.Log($"[SessionManager][CompleteRanking] Ranking complete! Ready for reveal stage.");
         }
 
         public void StartFinalAdjustments()
         {
             if (!IsRankingComplete())
             {
-                Debug.LogWarning("[GameManager][StartFinalAdjustments] Cannot begin Final Adjustments - ranking incomplete");
+                Debug.LogWarning("[SessionManager][StartFinalAdjustments] Cannot begin Final Adjustments - ranking incomplete");
                 return;
             }
 
             SetPhase(GamePhase.FinalAdjustments);
-            Debug.Log("[GameManager][StartFinalAdjustments] Final Adjustments phase started!");
+            Debug.Log("[SessionManager][StartFinalAdjustments] Final Adjustments phase started!");
             OnFinalAdjustmentPhaseStarted?.Invoke();
         }
 
         public void StartRevealStage()
         {
             SetPhase(GamePhase.RevealGameplay);
-            Debug.Log("[GameManager][StartRevealStage] Reveal Stage started!");
+            Debug.Log("[SessionManager][StartRevealStage] Reveal Stage started!");
             OnRevealStageStarted?.Invoke();
         }
     }
